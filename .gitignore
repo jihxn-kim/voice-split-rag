@@ -1,0 +1,93 @@
+# ---- OS / 일반 ----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# 로그
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# 캐시/빌드 아티팩트(공통)
+.cache/
+cache/
+dist/
+build/
+coverage/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ---- Node / JS / TS ----
+node_modules/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.turbo/
+.vite/
+.next/
+.nuxt/
+.output/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.hypothesis/
+.pyre/
+.pytype/
+cython_debug/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+pip-wheel-metadata/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ---- 편집기 / IDE ----
+.vscode/
+.idea/
+.history/
+
+# ---- 시스템 / 기타 ----
+.Spotlight-V100
+.Trashes
+.Trash-*
+~$*
+*.swp
+*.swo
+
+
