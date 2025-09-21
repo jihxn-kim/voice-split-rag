@@ -4,3 +4,8 @@ prometheus_fastapi_instrumentator==7.1.0
 langsmith==0.4.20
 dotenv==0.9.9
 openai==1.102.0
+google-cloud-speech==2.26.0
+pydub==0.25.1
+audioop-lts==0.2.2
+google-cloud-storage==3.4.0
+python-multipart==0.0.20
