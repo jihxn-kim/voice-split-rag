@@ -5,6 +5,7 @@
 #####################################################
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from logs.logging_util import LoggerSingleton
 from contextlib import asynccontextmanager
@@ -57,6 +58,20 @@ async def lifespan(app: FastAPI):
 
 # FastAPI 앱 인스턴스 생성
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://13.125.196.35:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://13.125.196.35",
+        "https://13.125.196.35",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Prometheus FastAPI 미들웨어 설정
 Instrumentator().instrument(app).expose(app)

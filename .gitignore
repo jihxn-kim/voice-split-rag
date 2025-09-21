@@ -90,4 +90,5 @@ MANIFEST
 *.swp
 *.swo
 
-
+# ---- 비밀 키 / 인증서 ----
+back/key/
