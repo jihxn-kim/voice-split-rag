@@ -1,0 +1,6 @@
+uvicorn==0.36.0
+fastapi==0.117.1
+prometheus_fastapi_instrumentator==7.1.0
+langsmith==0.4.20
+dotenv==0.9.9
+openai==1.102.0
