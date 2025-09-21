@@ -6,7 +6,15 @@ function App() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [audioDurationSec, setAudioDurationSec] = useState(null);
+  const [languageCode, setLanguageCode] = useState("ko-KR");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const fileInputRef = useRef(null);
+
+  const API_BASE =
+    (import.meta && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
+    "http://13.125.196.35:8000";
 
   const pickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -72,6 +80,38 @@ function App() {
   const clearSelection = () => {
     setSelectedFile(null);
     setAudioDurationSec(null);
+    setTranscript("");
+    setErrorMsg("");
+  };
+
+  const transcribe = async () => {
+    if (!selectedFile) {
+      alert("먼저 오디오 파일을 선택하세요.");
+      return;
+    }
+    setIsTranscribing(true);
+    setTranscript("");
+    setErrorMsg("");
+    try {
+      const form = new FormData();
+      form.append("file", selectedFile);
+      form.append("language_code", languageCode);
+
+      const res = await fetch(`${API_BASE}/voice/google-stt`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `요청 실패 (HTTP ${res.status})`);
+      }
+      const data = await res.json();
+      setTranscript((data && data.text) || "");
+    } catch (err) {
+      setErrorMsg(err?.message || "요청 처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   useEffect(() => {
@@ -148,6 +188,21 @@ function App() {
               />
             )}
 
+            <div className="meta" style={{ justifyContent: "center", gap: 8 }}>
+              <label htmlFor="lang" className="sub" style={{ marginRight: 6 }}>
+                언어
+              </label>
+              <select
+                id="lang"
+                value={languageCode}
+                onChange={(e) => setLanguageCode(e.target.value)}
+              >
+                <option value="ko-KR">한국어 (ko-KR)</option>
+                <option value="en-US">English (en-US)</option>
+                <option value="ja-JP">日本語 (ja-JP)</option>
+              </select>
+            </div>
+
             <div className="actions">
               <button type="button" className="btn" onClick={pickFile}>
                 다른 파일 선택
@@ -159,7 +214,50 @@ function App() {
               >
                 지우기
               </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={transcribe}
+                disabled={isTranscribing}
+              >
+                {isTranscribing ? "변환 중..." : "STT 변환"}
+              </button>
             </div>
+
+            {(isTranscribing || errorMsg || transcript) && (
+              <div className="selected" style={{ marginTop: 12 }}>
+                {isTranscribing && (
+                  <p className="sub" style={{ textAlign: "center" }}>
+                    변환 중입니다. 길이에 따라 시간이 걸릴 수 있어요...
+                  </p>
+                )}
+                {errorMsg && (
+                  <p
+                    className="sub"
+                    style={{ color: "#dc2626", textAlign: "center" }}
+                  >
+                    {errorMsg}
+                  </p>
+                )}
+                {transcript && (
+                  <div>
+                    <h2 className="title" style={{ fontSize: "1.25rem" }}>
+                      인식 결과
+                    </h2>
+                    <pre
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        background: "#f3f4f6",
+                        padding: 12,
+                        borderRadius: 8,
+                      }}
+                    >
+                      {transcript}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
