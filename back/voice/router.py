@@ -17,7 +17,7 @@ from openai import AsyncOpenAI
 from logs.logging_util import LoggerSingleton
 import logging
 from google.cloud.speech_v1p1beta1 import SpeechClient, RecognitionConfig, RecognitionAudio
-from google.cloud.speech_v1p1beta1.types import RecognitionConfig as RecognitionConfigTypes
+from google.cloud.speech_v1p1beta1.types import RecognitionConfig as RecognitionConfigTypes, SpeakerDiarizationConfig
 from typing import Optional
 from pydub import AudioSegment
 from pydub.utils import which
@@ -245,3 +245,210 @@ async def google_speech_to_text_async(
     except Exception as e:
         logger.exception("google-stt/async failed")
         raise HTTPException(status_code=500, detail=f"Async STT 처리 실패: {str(e)}")
+
+
+@router.post("/speaker-diarization")
+async def speaker_diarization(
+    file: UploadFile = File(...),
+    language_code: str = Form("ko-KR"),
+    min_speaker_count: int = Form(2),
+    max_speaker_count: int = Form(10),
+    speech_client: SpeechClient = Depends(get_google_speech_client),
+    storage_client = Depends(get_gcs_client),
+    default_bucket_name: Optional[str] = Depends(get_gcs_bucket_name),
+):
+    """음성 파일에서 화자를 구분하여 각 화자별로 음성을 추출합니다.
+    
+    Args:
+        file: 업로드된 오디오 파일
+        language_code: 언어 코드 (기본값: ko-KR)
+        min_speaker_count: 최소 화자 수 (기본값: 2)
+        max_speaker_count: 최대 화자 수 (기본값: 10)
+    """
+    try:
+        logger.info(f"/voice/speaker-diarization called: filename={file.filename}")
+        
+        # 버킷 결정
+        bucket = default_bucket_name or os.getenv("GCS_BUCKET_NAME")
+        if not bucket:
+            raise HTTPException(status_code=400, detail="GCS_BUCKET_NAME이 필요합니다.")
+        
+        # 파일 읽기
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="빈 파일입니다.")
+        
+        # 업로드 객체명
+        safe_name = (file.filename or "audio").replace(" ", "_")
+        object_name = f"diarization/{int(asyncio.get_event_loop().time()*1000)}_{safe_name}"
+        
+        # GCS에 업로드
+        bucket_ref = storage_client.bucket(bucket)
+        blob = bucket_ref.blob(object_name)
+        blob.upload_from_string(data)
+        
+        gcs_uri = f"gs://{bucket}/{object_name}"
+        logger.info(f"Uploaded to {gcs_uri}")
+        
+        # 화자 구분 설정
+        speaker_diarization_config = SpeakerDiarizationConfig(
+            enable_speaker_diarization=True,
+            min_speaker_count=min_speaker_count,
+            max_speaker_count=max_speaker_count,
+        )
+        
+        # 인식 설정
+        config = RecognitionConfig(
+            language_code=language_code,
+            enable_automatic_punctuation=True,
+            diarization_config=speaker_diarization_config,
+        )
+        audio = {"uri": gcs_uri}
+        
+        # 비동기 인식 실행
+        operation = speech_client.long_running_recognize(config=config, audio=audio)
+        result = operation.result(timeout=14400)  # 최대 4시간 대기
+        
+        # 결과 처리
+        speakers = {}
+        for result_item in result.results:
+            if result_item.alternatives:
+                words = result_item.alternatives[0].words
+                for word_info in words:
+                    speaker_tag = word_info.speaker_tag
+                    if speaker_tag not in speakers:
+                        speakers[speaker_tag] = {
+                            "speaker_id": speaker_tag,
+                            "words": [],
+                            "start_time": word_info.start_time.total_seconds() if word_info.start_time else 0,
+                            "end_time": word_info.end_time.total_seconds() if word_info.end_time else 0
+                        }
+                    
+                    speakers[speaker_tag]["words"].append({
+                        "word": word_info.word,
+                        "start_time": word_info.start_time.total_seconds() if word_info.start_time else 0,
+                        "end_time": word_info.end_time.total_seconds() if word_info.end_time else 0,
+                        "confidence": word_info.confidence
+                    })
+                    
+                    # 전체 발화 시간 업데이트
+                    if word_info.start_time:
+                        speakers[speaker_tag]["start_time"] = min(
+                            speakers[speaker_tag]["start_time"], 
+                            word_info.start_time.total_seconds()
+                        )
+                    if word_info.end_time:
+                        speakers[speaker_tag]["end_time"] = max(
+                            speakers[speaker_tag]["end_time"], 
+                            word_info.end_time.total_seconds()
+                        )
+        
+        # 각 화자별 텍스트 생성
+        for speaker_id, speaker_data in speakers.items():
+            speaker_data["text"] = " ".join([word["word"] for word in speaker_data["words"]])
+            speaker_data["duration"] = speaker_data["end_time"] - speaker_data["start_time"]
+        
+        # 화자별로 정렬 (시작 시간 기준)
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+        
+        # 전체 대화 텍스트 생성
+        full_transcript = " ".join([speaker["text"] for speaker in sorted_speakers])
+        
+        logger.info(f"Speaker diarization completed: {len(speakers)} speakers detected")
+        
+        return {
+            "gcs_uri": gcs_uri,
+            "total_speakers": len(speakers),
+            "full_transcript": full_transcript,
+            "speakers": sorted_speakers
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("speaker-diarization failed")
+        raise HTTPException(status_code=500, detail=f"화자 구분 처리 실패: {str(e)}")
+
+
+@router.post("/speaker-diarization/split-audio")
+async def speaker_diarization_split_audio(
+    file: UploadFile = File(...),
+    language_code: str = Form("ko-KR"),
+    min_speaker_count: int = Form(2),
+    max_speaker_count: int = Form(10),
+    speech_client: SpeechClient = Depends(get_google_speech_client),
+    storage_client = Depends(get_gcs_client),
+    default_bucket_name: Optional[str] = Depends(get_gcs_bucket_name),
+):
+    """음성 파일에서 화자를 구분하고 각 화자별로 오디오를 분할하여 저장합니다."""
+    try:
+        logger.info(f"/voice/speaker-diarization/split-audio called: filename={file.filename}")
+        
+        # 먼저 화자 구분 수행
+        diarization_result = await speaker_diarization(
+            file=file,
+            language_code=language_code,
+            min_speaker_count=min_speaker_count,
+            max_speaker_count=max_speaker_count,
+            speech_client=speech_client,
+            storage_client=storage_client,
+            default_bucket_name=default_bucket_name
+        )
+        
+        # 원본 오디오 파일 읽기
+        data = await file.read()
+        audio_seg = AudioSegment.from_file(BytesIO(data))
+        
+        # 각 화자별로 오디오 분할
+        bucket = default_bucket_name or os.getenv("GCS_BUCKET_NAME")
+        bucket_ref = storage_client.bucket(bucket)
+        
+        split_audio_files = []
+        
+        for speaker in diarization_result["speakers"]:
+            # 화자별 오디오 세그먼트 추출
+            start_ms = int(speaker["start_time"] * 1000)
+            end_ms = int(speaker["end_time"] * 1000)
+            speaker_audio = audio_seg[start_ms:end_ms]
+            
+            # 화자별 오디오 파일명 생성
+            safe_name = (file.filename or "audio").replace(" ", "_")
+            base_name = safe_name.rsplit(".", 1)[0] if "." in safe_name else safe_name
+            speaker_filename = f"{base_name}_speaker_{speaker['speaker_id']}.wav"
+            
+            # 오디오를 WAV 형식으로 변환
+            audio_buffer = BytesIO()
+            speaker_audio.export(audio_buffer, format="wav")
+            audio_buffer.seek(0)
+            
+            # GCS에 업로드
+            object_name = f"split_audio/{int(asyncio.get_event_loop().time()*1000)}_{speaker_filename}"
+            blob = bucket_ref.blob(object_name)
+            blob.upload_from_file(audio_buffer, content_type="audio/wav")
+            
+            gcs_uri = f"gs://{bucket}/{object_name}"
+            
+            split_audio_files.append({
+                "speaker_id": speaker["speaker_id"],
+                "filename": speaker_filename,
+                "gcs_uri": gcs_uri,
+                "start_time": speaker["start_time"],
+                "end_time": speaker["end_time"],
+                "duration": speaker["duration"],
+                "text": speaker["text"]
+            })
+        
+        logger.info(f"Audio splitting completed: {len(split_audio_files)} speaker files created")
+        
+        return {
+            "original_gcs_uri": diarization_result["gcs_uri"],
+            "total_speakers": diarization_result["total_speakers"],
+            "full_transcript": diarization_result["full_transcript"],
+            "split_audio_files": split_audio_files
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("speaker-diarization/split-audio failed")
+        raise HTTPException(status_code=500, detail=f"화자별 오디오 분할 실패: {str(e)}")
