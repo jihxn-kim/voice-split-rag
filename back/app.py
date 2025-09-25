@@ -11,7 +11,11 @@ from logs.logging_util import LoggerSingleton
 from contextlib import asynccontextmanager
 from config.clients import initialize_clients
 from voice.router import router as voice_router
+from dotenv import load_dotenv
+import os
 import logging
+
+load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,14 +63,16 @@ async def lifespan(app: FastAPI):
 # FastAPI 앱 인스턴스 생성
 app = FastAPI(lifespan=lifespan)
 
+vsr_url = os.getenv("VSR_URL")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://13.125.196.35:5173",
+        f"{vsr_url}:5173",
         "http://127.0.0.1:5173",
         "http://localhost:5173",
-        "http://13.125.196.35",
-        "https://13.125.196.35",
+        f"{vsr_url}",
+        f"https://{vsr_url}",
     ],
     allow_credentials=True,
     allow_methods=["*"],
