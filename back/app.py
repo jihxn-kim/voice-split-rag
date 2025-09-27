@@ -11,6 +11,7 @@ from logs.logging_util import LoggerSingleton
 from contextlib import asynccontextmanager
 from config.clients import initialize_clients
 from voice.router import router as voice_router
+from config.exception import register_exception_handlers
 from dotenv import load_dotenv
 import os
 import logging
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
 
 # FastAPI 앱 인스턴스 생성
 app = FastAPI(lifespan=lifespan)
+register_exception_handlers(app)
 
 vsr_url = os.getenv("VSR_URL")
 
