@@ -10,12 +10,15 @@ from config.dependencies import (
     get_gcs_client,
     get_gcs_bucket_name,
     get_openai_client,
+    get_google_speech_v2_client,
+    get_speech_v2_recognizer,
 )
 from fastapi import Depends, UploadFile, File, Form, Body
 from logs.logging_util import LoggerSingleton
 import logging
 from google.cloud.speech_v1p1beta1 import SpeechClient, RecognitionConfig
 from google.cloud.speech_v1p1beta1.types import SpeakerDiarizationConfig
+from google.cloud import speech_v2
 from typing import Optional
 import asyncio
 import os
@@ -105,14 +108,14 @@ async def speaker_diarization(
         gcs_uri = f"gs://{bucket}/{object_name}"
         logger.info(f"Uploaded to {gcs_uri} (converted to WAV LINEAR16 16kHz mono)")
         
-        # 화자 구분 설정
+        # 화자 구분 설정 (v1)
         speaker_diarization_config = SpeakerDiarizationConfig(
             enable_speaker_diarization=True,
             min_speaker_count=min_speaker_count,
             max_speaker_count=max_speaker_count,
         )
         
-        # 인식 설정
+        # 인식 설정 (v1)
         config = RecognitionConfig(
             language_code=language_code,
             enable_automatic_punctuation=True,
@@ -124,9 +127,9 @@ async def speaker_diarization(
         )
         audio = {"uri": gcs_uri}
         
-        # 비동기 인식 실행
+        # 비동기 인식 실행 (v1)
         operation = speech_client.long_running_recognize(config=config, audio=audio)
-        result = operation.result(timeout=14400)  # 최대 4시간 대기
+        result = await asyncio.to_thread(operation.result, 14400)
         
         # 결과 처리: 화자 분리 단어는 마지막 result에 누적되어 제공되므로 마지막 것만 사용
         speakers = {}
@@ -265,4 +268,193 @@ async def speaker_diarization(
                 logger.exception("failed to delete uploaded object after failure")
 
 
-# (불필요한 STT 엔드포인트들은 제거되었습니다)
+@router.post("/speaker-diarization-v2")
+async def speaker_diarization_v2(
+    file: UploadFile = File(...),
+    language_code: str = Form("ko-KR"),
+    min_speaker_count: int = Form(2),
+    max_speaker_count: int = Form(10),
+    delete_after_process: bool = Form(True),
+    storage_client = Depends(get_gcs_client),
+    default_bucket_name: Optional[str] = Depends(get_gcs_bucket_name),
+    v2_client = Depends(get_google_speech_v2_client),
+    recognizer_path: Optional[str] = Depends(get_speech_v2_recognizer),
+):
+    """Speech-to-Text v2(Chirp 3)로 화자 구분 수행"""
+    blob = None
+    gcs_uri = None
+    process_succeeded = False
+    try:
+        logger.info(f"/voice/speaker-diarization-v2 called: filename={file.filename}")
+
+        bucket = default_bucket_name or os.getenv("GCS_BUCKET_NAME")
+        if not bucket:
+            raise BadRequest("GCS_BUCKET_NAME이 필요합니다.")
+
+        data = await file.read()
+        if not data:
+            raise BadRequest("빈 파일입니다.")
+
+        try:
+            audio_seg = AudioSegment.from_file(BytesIO(data))
+            audio_seg = audio_seg.set_channels(1).set_frame_rate(16000)
+            wav_buffer = BytesIO()
+            audio_seg.export(wav_buffer, format="wav")
+            converted_bytes = wav_buffer.getvalue()
+            wav_buffer.close()
+        except Exception:
+            logger.exception("audio conversion failed")
+            raise BadRequest("지원되지 않는 오디오 형식입니다. WAV/FLAC/MP3/OGG 업로드 또는 ffmpeg 설치가 필요합니다.")
+
+        safe_name = (file.filename or "audio").replace(" ", "_")
+        base_name, _ = os.path.splitext(safe_name)
+        object_name = f"diarization/{int(asyncio.get_event_loop().time()*1000)}_{base_name}.wav"
+
+        bucket_ref = storage_client.bucket(bucket)
+        blob = bucket_ref.blob(object_name)
+        blob.upload_from_string(converted_bytes, content_type="audio/wav")
+        gcs_uri = f"gs://{bucket}/{object_name}"
+
+        if not recognizer_path:
+            raise BadRequest("SPEECH_V2_RECOGNIZER 또는 PROJECT_ID가 필요합니다.")
+
+        request = {
+            "recognizer": recognizer_path,
+            "config": {
+                "auto_decoding_config": {},
+                "language_codes": [language_code],
+                "features": {
+                    "enable_automatic_punctuation": True,
+                    "enable_word_time_offsets": True,
+                    "diarization_config": {
+                        "min_speaker_count": min_speaker_count,
+                        "max_speaker_count": max_speaker_count,
+                    },
+                },
+            },
+            "uri": gcs_uri,
+        }
+
+        response = await asyncio.to_thread(v2_client.recognize, request=request)
+
+        speakers = {}
+        words_all: list[dict] = []
+        diarized_words = []
+        for result_item in getattr(response, "results", []) or []:
+            alternatives = getattr(result_item, "alternatives", []) or []
+            if alternatives and getattr(alternatives[0], "words", None):
+                diarized_words = alternatives[0].words
+
+        if not diarized_words:
+            for result_item in getattr(response, "results", []) or []:
+                alternatives = getattr(result_item, "alternatives", []) or []
+                if alternatives and getattr(alternatives[0], "words", None):
+                    diarized_words.extend(alternatives[0].words)
+
+        for word_info in diarized_words:
+            speaker_tag = word_info.speaker_tag
+            start_s = word_info.start_time.total_seconds() if word_info.start_time else 0
+            end_s = word_info.end_time.total_seconds() if word_info.end_time else 0
+
+            words_all.append({
+                "speaker_id": speaker_tag,
+                "word": word_info.word,
+                "start_time": start_s,
+                "end_time": end_s,
+            })
+
+            if speaker_tag not in speakers:
+                speakers[speaker_tag] = {
+                    "speaker_id": speaker_tag,
+                    "words": [],
+                    "start_time": start_s,
+                    "end_time": end_s,
+                }
+
+            speakers[speaker_tag]["words"].append({
+                "word": word_info.word,
+                "start_time": start_s,
+                "end_time": end_s,
+                "confidence": word_info.confidence,
+            })
+
+            speakers[speaker_tag]["start_time"] = min(speakers[speaker_tag]["start_time"], start_s)
+            speakers[speaker_tag]["end_time"] = max(speakers[speaker_tag]["end_time"], end_s)
+
+        for speaker_id, speaker_data in speakers.items():
+            speaker_data["text"] = " ".join([word["word"] for word in speaker_data["words"]])
+            speaker_data["duration"] = speaker_data["end_time"] - speaker_data["start_time"]
+
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+        full_transcript = " ".join([speaker["text"] for speaker in sorted_speakers])
+
+        segments: list[dict] = []
+        if words_all:
+            words_all.sort(key=lambda x: x["start_time"]) 
+            current = {
+                "speaker_id": words_all[0]["speaker_id"],
+                "start_time": words_all[0]["start_time"],
+                "end_time": words_all[0]["end_time"],
+                "text_parts": [words_all[0]["word"]],
+            }
+            for w in words_all[1:]:
+                if w["speaker_id"] == current["speaker_id"]:
+                    current["end_time"] = w["end_time"]
+                    current["text_parts"].append(w["word"])
+                else:
+                    segments.append({
+                        "speaker_id": current["speaker_id"],
+                        "start_time": current["start_time"],
+                        "end_time": current["end_time"],
+                        "duration": current["end_time"] - current["start_time"],
+                        "text": " ".join(current["text_parts"]).strip(),
+                    })
+                    current = {
+                        "speaker_id": w["speaker_id"],
+                        "start_time": w["start_time"],
+                        "end_time": w["end_time"],
+                        "text_parts": [w["word"]],
+                    }
+            segments.append({
+                "speaker_id": current["speaker_id"],
+                "start_time": current["start_time"],
+                "end_time": current["end_time"],
+                "duration": current["end_time"] - current["start_time"],
+                "text": " ".join(current["text_parts"]).strip(),
+            })
+
+        dialogue = "\n".join([f"발화자 {seg['speaker_id']}: {seg['text']}" for seg in segments])
+
+        deleted_source = False
+        if delete_after_process and gcs_uri:
+            try:
+                blob.delete()
+                logger.info(f"Deleted source object: {gcs_uri}")
+                deleted_source = True
+            except Exception:
+                logger.exception("failed to delete uploaded object after process")
+                deleted_source = False
+
+        process_succeeded = True
+        return {
+            "gcs_uri": gcs_uri,
+            "total_speakers": len(speakers),
+            "full_transcript": full_transcript,
+            "speakers": sorted_speakers,
+            "segments": segments,
+            "dialogue": dialogue,
+            "deleted_source": deleted_source,
+        }
+    except AppException:
+        raise
+    except Exception as e:
+        logger.exception("speaker-diarization-v2 failed")
+        raise InternalError(f"화자 구분(v2) 처리 실패: {str(e)}")
+    finally:
+        if not process_succeeded and blob is not None:
+            try:
+                blob.delete()
+                if gcs_uri:
+                    logger.info(f"Deleted source object after failure: {gcs_uri}")
+            except Exception:
+                logger.exception("failed to delete uploaded object after failure")

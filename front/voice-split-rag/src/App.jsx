@@ -7,8 +7,6 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [audioDurationSec, setAudioDurationSec] = useState(null);
 
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isDiarizing, setIsDiarizing] = useState(false);
   const [diarizationResult, setDiarizationResult] = useState(null);
@@ -86,49 +84,8 @@ function App() {
   const clearSelection = () => {
     setSelectedFile(null);
     setAudioDurationSec(null);
-    setTranscript("");
     setErrorMsg("");
     setDiarizationResult(null);
-  };
-
-  const transcribe = async () => {
-    if (!selectedFile) {
-      alert("먼저 오디오 파일을 선택하세요.");
-      return;
-    }
-    setIsTranscribing(true);
-    setTranscript("");
-    setErrorMsg("");
-    try {
-      const form = new FormData();
-      form.append("file", selectedFile);
-
-      const res = await fetch(`${API_BASE}/voice/google-stt`, {
-        method: "POST",
-        body: form,
-      });
-      if (!res.ok) {
-        let message = `요청 실패 (HTTP ${res.status})`;
-        try {
-          const errJson = await res.clone().json();
-          if (errJson && typeof errJson === "object") {
-            message =
-              errJson.message || errJson.detail || JSON.stringify(errJson);
-          }
-        } catch (_) {}
-        try {
-          const text = await res.text();
-          if (text) message = text;
-        } catch (_) {}
-        throw new Error(message);
-      }
-      const data = await res.json();
-      setTranscript((data && data.text) || "");
-    } catch (err) {
-      setErrorMsg(err?.message || "요청 처리 중 오류가 발생했습니다.");
-    } finally {
-      setIsTranscribing(false);
-    }
   };
 
   const diarize = async () => {
@@ -143,7 +100,7 @@ function App() {
       const form = new FormData();
       form.append("file", selectedFile);
 
-      const res = await fetch(`${API_BASE}/voice/speaker-diarization`, {
+      const res = await fetch(`${API_BASE}/voice/speaker-diarization-v2`, {
         method: "POST",
         body: form,
       });
@@ -289,7 +246,7 @@ function App() {
 
         {selectedFile && (
           <div className="selected">
-            {isTranscribing || isDiarizing ? (
+            {isDiarizing ? (
               <div
                 style={{
                   display: "flex",
@@ -330,7 +287,7 @@ function App() {
                   />
                 )}
 
-                {(errorMsg || transcript || diarizationResult) && (
+                {(errorMsg || diarizationResult) && (
                   <div className="selected" style={{ marginTop: 12 }}>
                     {errorMsg && (
                       <p
@@ -340,23 +297,7 @@ function App() {
                         {errorMsg}
                       </p>
                     )}
-                    {transcript && (
-                      <div>
-                        <h2 className="title" style={{ fontSize: "1.25rem" }}>
-                          인식 결과
-                        </h2>
-                        <pre
-                          style={{
-                            whiteSpace: "pre-wrap",
-                            background: "#f3f4f6",
-                            padding: 12,
-                            borderRadius: 8,
-                          }}
-                        >
-                          {transcript}
-                        </pre>
-                      </div>
-                    )}
+
                     {diarizationResult && (
                       <div>
                         <h2 className="title" style={{ fontSize: "1.25rem" }}>
