@@ -336,6 +336,10 @@ async def speaker_diarization_v2(
             "files": [
                 {"uri": gcs_uri}
             ],
+            # 출력 설정 필수: 인라인 응답으로 결과를 받음
+            "recognition_output_config": {
+                "inline_response_config": {}
+            },
         }
 
         # 비동기 배치 인식 실행 후 완료까지 대기
