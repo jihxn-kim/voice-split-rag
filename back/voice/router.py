@@ -332,10 +332,15 @@ async def speaker_diarization_v2(
                     },
                 },
             },
-            "uri": gcs_uri,
+            # BatchRecognize는 파일 목록을 받습니다.
+            "files": [
+                {"uri": gcs_uri}
+            ],
         }
 
-        response = await asyncio.to_thread(v2_client.recognize, request=request)
+        # 비동기 배치 인식 실행 후 완료까지 대기
+        operation = await asyncio.to_thread(v2_client.batch_recognize, request=request)
+        response = await asyncio.to_thread(operation.result, 14400)
 
         speakers = {}
         words_all: list[dict] = []
