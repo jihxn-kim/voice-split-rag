@@ -4,9 +4,9 @@
 #                                                   #
 #####################################################
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Body, Header
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Header
 from sqlalchemy.orm import Session
-from config.dependencies import get_openai_client, get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
+from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
@@ -15,7 +15,6 @@ from schemas.voice_record import VoiceRecordCreate, VoiceRecordResponse, VoiceRe
 from database import get_db
 from logs.logging_util import LoggerSingleton
 import logging
-from openai import AsyncOpenAI
 from config.exception import BadRequest, InternalError, AppException
 from pydantic import BaseModel
 import assemblyai as aai
@@ -93,24 +92,6 @@ async def generate_upload_url(
     except Exception as e:
         logger.exception("generate-upload-url failed")
         raise InternalError(f"Pre-signed URL 생성 실패: {str(e)}")
-
-
-@router.post("/ai-chat")
-async def speech_to_text(
-    client: AsyncOpenAI = Depends(get_openai_client),
-    prompt: str = Body(..., embed=True)
-):
-    """OpenAI Chat API"""
-    logger.info("ai-chat")
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    logger.info(response.choices[0].message.content)
-    return {"message": response.choices[0].message.content}
 
 
 @router.post("/process-s3-file", response_model=VoiceRecordResponse)
