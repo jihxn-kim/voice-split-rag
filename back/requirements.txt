@@ -15,5 +15,6 @@ psycopg2-binary==2.9.10
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 alembic==1.14.0
+email-validator==2.1.0
 
 # ffmpeg는 Railway가 자동으로 설치합니다 (nixpacks.toml 참조)
