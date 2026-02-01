@@ -6,6 +6,7 @@
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, BackgroundTasks
 from sqlalchemy.orm import Session
+from typing import Optional
 from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name, get_openai_client
 from auth.dependencies import get_current_active_user
 from models.user import User
