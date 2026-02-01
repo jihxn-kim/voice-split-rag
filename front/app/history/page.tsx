@@ -23,6 +23,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchRecords = async () => {

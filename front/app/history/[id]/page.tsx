@@ -48,6 +48,7 @@ export default function RecordDetailPage() {
     if (recordId) {
       fetchRecord();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordId]);
 
   const fetchRecord = async () => {
