@@ -104,8 +104,8 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Inactive user"
         )
     
-    # JWT 토큰 생성
-    access_token = create_access_token(data={"sub": user.id})
+    # JWT 토큰 생성 (sub는 문자열이어야 함)
+    access_token = create_access_token(data={"sub": str(user.id)})
     
     logger.info(f"Login successful: user_id={user.id}, username={user.username}")
     
