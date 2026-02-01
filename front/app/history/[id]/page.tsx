@@ -130,6 +130,22 @@ export default function RecordDetailPage() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  const formatSpeakerLabel = (speakerId: string) => {
+    const trimmed = (speakerId || "").toString().trim();
+    if (!trimmed) return "발화자";
+    if (trimmed.includes("상담사") || trimmed.includes("내담자")) {
+      return trimmed;
+    }
+    return `발화자 ${trimmed}`;
+  };
+
+  const getSpeakerRole = (speakerId: string) => {
+    const label = (speakerId || "").toString();
+    if (label.includes("상담사")) return "counselor";
+    if (label.includes("내담자")) return "client";
+    return "unknown";
+  };
+
   if (loading) {
     return (
       <div className="main-layout">
@@ -217,19 +233,35 @@ export default function RecordDetailPage() {
             <div className="section">
               <h2 className="section-title">📝 상담 대화</h2>
               <div className="segments-list">
-                {record.segments_data.map((segment, index) => (
-                  <div key={index} className="segment-item">
-                    <div className="segment-header">
-                      <span className="segment-speaker">
-                        발화자 {segment.speaker_id}
-                      </span>
-                      <span className="segment-time">
-                        {formatTime(segment.start_time)}
-                      </span>
-                    </div>
-                    <p className="segment-text">{segment.text}</p>
-                  </div>
-                ))}
+                {(() => {
+                  const speakerCounts = new Map<string, number>();
+                  return record.segments_data.map((segment, index) => {
+                    const role = getSpeakerRole(segment.speaker_id);
+                    const alignClass = role === "client" ? "right" : "left";
+                    const speakerKey = (segment.speaker_id || "").toString();
+                    const nextCount = (speakerCounts.get(speakerKey) || 0) + 1;
+                    speakerCounts.set(speakerKey, nextCount);
+
+                    return (
+                      <div key={index} className={`segment-row ${alignClass}`}>
+                        <div className={`segment-item ${alignClass}`}>
+                          <div className="segment-header">
+                            <div className="segment-speaker-group">
+                              <span className="segment-speaker">
+                                {formatSpeakerLabel(segment.speaker_id)}
+                              </span>
+                              <span className="segment-count">{nextCount}</span>
+                            </div>
+                            <span className="segment-time">
+                              {formatTime(segment.start_time)}
+                            </span>
+                          </div>
+                          <p className="segment-text">{segment.text}</p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           </div>

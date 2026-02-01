@@ -115,6 +115,101 @@ JSON 형식으로 응답:
         # 분석 실패해도 음성 기록 자체는 유지
 
 
+async def identify_counselor_speaker_id(
+    openai_client: AsyncOpenAI | None,
+    segments: list[dict],
+) -> str | None:
+    """첫 5개 발화를 기반으로 상담사 화자 ID를 추정"""
+    if not openai_client:
+        logger.warning("OpenAI client not available, skipping counselor identification")
+        return None
+
+    if not segments:
+        return None
+
+    speaker_ids: list[str] = []
+    for seg in segments:
+        speaker_id = str(seg.get("speaker_id"))
+        if speaker_id not in speaker_ids:
+            speaker_ids.append(speaker_id)
+
+    if len(speaker_ids) < 2:
+        return None
+
+    sample_segments = segments[:5]
+    lines = []
+    for idx, seg in enumerate(sample_segments, start=1):
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        speaker_id = str(seg.get("speaker_id"))
+        lines.append(f"{idx}. 발화자 {speaker_id}: {text}")
+
+    if not lines:
+        return None
+
+    prompt = f"""
+다음은 상담 도입부의 발화 {len(lines)}개입니다.
+발화자 ID는 {speaker_ids} 중 하나입니다.
+상담사(전문가)로 판단되는 발화자 ID를 하나 선택하세요.
+확신이 없으면 null을 반환하세요.
+
+응답은 반드시 JSON 형식으로만 작성:
+{{"counselor_speaker_id": "A", "confidence": 0.0}}
+
+발화 목록:
+{chr(10).join(lines)}
+"""
+
+    try:
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 상담 대화에서 상담사와 내담자를 구분하는 전문가입니다. "
+                        "상담사는 질문, 반영, 정리, 공감, 진행을 주도하는 경향이 있고 "
+                        "내담자는 개인 경험, 감정, 사건을 서술하는 경향이 있습니다."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        result = json.loads(response.choices[0].message.content)
+        counselor_id = result.get("counselor_speaker_id")
+        if counselor_id is None:
+            return None
+        counselor_id = str(counselor_id).strip()
+        if counselor_id not in speaker_ids:
+            logger.warning(
+                f"Counselor speaker id not in list, skipping: {counselor_id}"
+            )
+            return None
+        return counselor_id
+    except Exception as e:
+        logger.warning(f"Counselor identification failed: {str(e)}")
+        return None
+
+
+def build_speaker_label_map(speaker_ids: list[str], counselor_id: str) -> dict[str, str]:
+    """상담사/내담자 라벨 매핑 생성"""
+    label_map: dict[str, str] = {counselor_id: "상담사"}
+    client_index = 0
+    for speaker_id in speaker_ids:
+        if speaker_id == counselor_id:
+            continue
+        if client_index < 26:
+            suffix = chr(ord("A") + client_index)
+        else:
+            suffix = str(client_index + 1)
+        label_map[speaker_id] = f"내담자 {suffix}"
+        client_index += 1
+    return label_map
+
+
 # Pydantic 모델
 class PresignedUrlRequest(BaseModel):
     filename: str
@@ -189,6 +284,7 @@ async def process_s3_file(
     s3_client = Depends(get_s3_client),
     bucket_name: str = Depends(get_s3_bucket_name),
     api_key: str | None = Depends(get_assemblyai_api_key),
+    openai_client: AsyncOpenAI | None = Depends(get_openai_client),
 ):
     """S3에 업로드된 파일을 다운로드하여 화자 구분 처리 및 DB 저장
     
@@ -257,7 +353,7 @@ async def process_s3_file(
         segments = []
         
         for utterance in transcript.utterances:
-            speaker_id = utterance.speaker
+            speaker_id = str(utterance.speaker)
             text = utterance.text
             start_time = utterance.start / 1000.0  # 밀리초 -> 초
             end_time = utterance.end / 1000.0
@@ -289,6 +385,26 @@ async def process_s3_file(
         for speaker_id in speakers:
             speakers[speaker_id]["text"] = speakers[speaker_id]["text"].strip()
         
+        # 상담사 화자 식별 및 라벨링 (LLM 기반)
+        speaker_ids = []
+        for seg in segments:
+            speaker_id = str(seg.get("speaker_id"))
+            if speaker_id not in speaker_ids:
+                speaker_ids.append(speaker_id)
+
+        labels_applied = False
+        counselor_id = await identify_counselor_speaker_id(openai_client, segments)
+        if counselor_id:
+            label_map = build_speaker_label_map(speaker_ids, counselor_id)
+            for seg in segments:
+                seg_speaker_id = str(seg.get("speaker_id"))
+                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
+            for speaker in speakers.values():
+                spk_id = str(speaker.get("speaker_id"))
+                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
+            labels_applied = True
+            logger.info(f"Speaker labels applied: counselor={counselor_id}")
+
         # 화자별로 정렬 (시작 시간 기준)
         sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
         
@@ -296,7 +412,10 @@ async def process_s3_file(
         full_transcript = transcript.text
         
         # 시간순 대화 문자열 생성
-        dialogue = "\n".join([f"발화자 {seg['speaker_id']}: {seg['text']}" for seg in segments])
+        if labels_applied:
+            dialogue = "\n".join([f"{seg['speaker_id']}: {seg['text']}" for seg in segments])
+        else:
+            dialogue = "\n".join([f"발화자 {seg['speaker_id']}: {seg['text']}" for seg in segments])
         
         logger.info(f"Speaker diarization completed: {len(speakers)} speakers detected")
         
