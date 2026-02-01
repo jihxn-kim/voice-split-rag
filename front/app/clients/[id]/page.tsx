@@ -100,6 +100,38 @@ export default function ClientDetailPage() {
     }
   };
 
+  const updateSessionCount = async () => {
+    const count = parseInt(newSessionCount);
+    if (isNaN(count) || count < 1 || count > 100) {
+      alert('1에서 100 사이의 숫자를 입력해주세요.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ total_sessions: count }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setClient(updated);
+        setShowSessionModal(false);
+        setNewSessionCount('');
+      } else {
+        alert('회기 수 수정에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Failed to update sessions:', err);
+      alert('회기 수 수정 중 오류가 발생했습니다.');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -114,6 +146,20 @@ export default function ClientDetailPage() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const getSessionBoxes = () => {
+    const boxes = [];
+    const totalSessions = client?.total_sessions || 8;
+    
+    for (let i = 1; i <= totalSessions; i++) {
+      const record = voiceRecords[i - 1];
+      boxes.push({
+        sessionNumber: i,
+        record: record || null,
+      });
+    }
+    return boxes;
   };
 
   if (loading) {
