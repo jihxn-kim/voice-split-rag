@@ -16,9 +16,6 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shouldAutoDiarize, setShouldAutoDiarize] = useState(false);
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-
   const pickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
@@ -100,7 +97,8 @@ export default function Home() {
       const form = new FormData();
       form.append("file", selectedFile);
 
-      const res = await fetch(`${API_BASE}/voice/speaker-diarization-v2`, {
+      // Next.js API Route를 통해 호출 (API 키는 서버에서 처리)
+      const res = await fetch("/api/diarize", {
         method: "POST",
         body: form,
       });
@@ -128,50 +126,6 @@ export default function Home() {
     }
   };
 
-  const diarizeAndSplit = async () => {
-    if (!selectedFile) {
-      alert("먼저 오디오 파일을 선택하세요.");
-      return;
-    }
-    setIsDiarizing(true);
-    setDiarizationResult(null);
-    setErrorMsg("");
-    try {
-      const form = new FormData();
-      form.append("file", selectedFile);
-
-      const res = await fetch(
-        `${API_BASE}/voice/speaker-diarization/split-audio`,
-        {
-          method: "POST",
-          body: form,
-        }
-      );
-      if (!res.ok) {
-        let message = `요청 실패 (HTTP ${res.status})`;
-        try {
-          const errJson = await res.clone().json();
-          if (errJson && typeof errJson === "object") {
-            message =
-              errJson.message || errJson.detail || JSON.stringify(errJson);
-          }
-        } catch (_) {}
-        try {
-          const text = await res.text();
-          if (text) message = text;
-        } catch (_) {}
-        throw new Error(message);
-      }
-      const data = await res.json();
-      setDiarizationResult(data);
-    } catch (err: any) {
-      setErrorMsg(
-        err?.message || "화자 구분 및 오디오 분할 처리 중 오류가 발생했습니다."
-      );
-    } finally {
-      setIsDiarizing(false);
-    }
-  };
 
   useEffect(() => {
     if (!selectedFile) {

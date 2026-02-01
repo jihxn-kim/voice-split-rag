@@ -4,7 +4,7 @@
 #                                                   #
 #####################################################
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Body, Header
 from config.dependencies import get_openai_client, get_assemblyai_api_key
 from logs.logging_util import LoggerSingleton
 import logging
@@ -43,6 +43,7 @@ async def speaker_diarization_v2(
     language_code: str = Form("ko"),
     min_speaker_count: int = Form(2),
     max_speaker_count: int = Form(10),
+    x_api_key: str = Header(..., alias="X-API-Key"),
     api_key: str | None = Depends(get_assemblyai_api_key),
 ):
     """AssemblyAI를 사용한 화자 구분 및 음성 인식
@@ -57,6 +58,15 @@ async def speaker_diarization_v2(
     
     try:
         logger.info(f"/voice/speaker-diarization-v2 called: filename={file.filename}")
+        
+        # API 키 검증 (프론트엔드 인증)
+        expected_key = os.getenv("FRONTEND_API_KEY")
+        if not expected_key:
+            raise InternalError("FRONTEND_API_KEY가 설정되지 않았습니다.")
+        
+        if x_api_key != expected_key:
+            logger.warning(f"Unauthorized access attempt with key: {x_api_key[:10]}...")
+            raise BadRequest("Invalid API Key", code="UNAUTHORIZED")
         
         if not api_key:
             raise BadRequest("ASSEMBLYAI_API_KEY 환경 변수가 설정되지 않았습니다.")
