@@ -46,16 +46,18 @@ async def analyze_client_with_openai(client_data: ClientCreate, openai_client: A
 
 1. **상담신청 배경**: 내담자가 상담을 신청하게 된 배경을 전문적 관점에서 정리하고 분석
 2. **주호소내용**: 내담자의 주요 호소 문제를 심리학적 관점에서 체계적으로 정리
-3. **10회기상담목표**: 10회기 단기 상담을 기준으로 구체적이고 측정 가능한 상담 목표 설정
-4. **상담전략**: 위 목표를 달성하기 위한 구체적인 상담 전략과 개입 방법 제시
+3. **10회기상담목표**: 10회기 단기 상담을 기준으로 구체적이고 측정 가능한 상담 목표를 문단 형식으로 작성 (번호나 리스트 형식 사용 가능)
+4. **상담전략**: 위 목표를 달성하기 위한 구체적인 상담 전략과 개입 방법을 문단 형식으로 제시
 
-각 항목은 전문적이면서도 이해하기 쉽게 작성해주세요. JSON 형식으로 응답해주세요.
-응답 형식:
+각 항목은 전문적이면서도 이해하기 쉽게 작성해주세요. 
+**중요**: 모든 값은 반드시 문자열(string) 형식으로 작성해주세요.
+
+JSON 형식으로 응답해주세요:
 {{
-    "consultation_background": "상담신청 배경 분석 내용",
-    "main_complaint": "주호소내용 분석",
-    "counseling_goals": "10회기상담목표",
-    "counseling_strategy": "상담전략"
+    "consultation_background": "상담신청 배경 분석 내용 (문자열)",
+    "main_complaint": "주호소내용 분석 (문자열)",
+    "counseling_goals": "10회기상담목표 (문자열, 번호 포함 가능)",
+    "counseling_strategy": "상담전략 (문자열)"
 }}
 """
     
@@ -78,6 +80,12 @@ async def analyze_client_with_openai(client_data: ClientCreate, openai_client: A
         
         result = json.loads(response.choices[0].message.content)
         logger.info(f"OpenAI analysis completed for client: {client_data.name}")
+        
+        # dict 타입의 값들을 JSON 문자열로 변환
+        for key, value in result.items():
+            if isinstance(value, dict):
+                result[key] = json.dumps(value, ensure_ascii=False)
+        
         return result
         
     except Exception as e:
