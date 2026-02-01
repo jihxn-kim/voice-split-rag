@@ -49,6 +49,18 @@ export default function ClientEditPage() {
   // 토스트 알림 상태
   const [showToast, setShowToast] = useState(false);
 
+  // 클립보드 복사 함수
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('클립보드 복사에 실패했습니다.');
+    }
+  };
+
   useEffect(() => {
     const fetchClient = async () => {
       const token = localStorage.getItem('access_token');
