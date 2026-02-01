@@ -44,7 +44,7 @@ export default function ClientDetailPage() {
   const [error, setError] = useState('');
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [newSessionCount, setNewSessionCount] = useState('');
-  const [showRecordsView, setShowRecordsView] = useState(false);
+  const [showRecordsView, setShowRecordsView] = useState(true); // 기본적으로 펼쳐진 상태
 
   useEffect(() => {
     if (clientId) {
@@ -120,8 +120,8 @@ export default function ClientDetailPage() {
       });
 
       if (res.ok) {
-        const updated = await res.json();
-        setClient(updated);
+        // 업데이트 후 전체 데이터 다시 로드
+        await fetchClientData();
         setShowSessionModal(false);
         setNewSessionCount('');
       } else {
