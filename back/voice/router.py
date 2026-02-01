@@ -449,13 +449,13 @@ def run_stt_processing_background(
 
         for utterance in transcript.utterances:
             speaker_id = str(utterance.speaker)
-            text = utterance.text
+            utterance_text = utterance.text
             start_time = utterance.start / 1000.0
             end_time = utterance.end / 1000.0
 
             segments.append({
                 "speaker_id": speaker_id,
-                "text": text,
+                "text": utterance_text,
                 "start_time": start_time,
                 "end_time": end_time,
                 "duration": end_time - start_time,
@@ -470,7 +470,7 @@ def run_stt_processing_background(
                     "duration": 0,
                 }
 
-            speakers[speaker_id]["text"] += " " + text
+            speakers[speaker_id]["text"] += " " + utterance_text
             speakers[speaker_id]["end_time"] = max(speakers[speaker_id]["end_time"], end_time)
             speakers[speaker_id]["duration"] = (
                 speakers[speaker_id]["end_time"] - speakers[speaker_id]["start_time"]
