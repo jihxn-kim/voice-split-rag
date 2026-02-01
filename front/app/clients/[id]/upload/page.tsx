@@ -221,9 +221,9 @@ export default function ClientUploadPage() {
       const data = await processRes.json();
       setDiarizationResult(data);
 
-      // 성공하면 내담자 상세 페이지로 이동
+      // 성공하면 내담자 상세 페이지로 이동 (새로고침 파라미터 추가)
       setTimeout(() => {
-        router.push(`/clients/${clientId}`);
+        router.push(`/clients/${clientId}?refresh=${Date.now()}`);
       }, 2000);
     } catch (err: any) {
       setErrorMsg(err?.message || '화자 구분 처리 중 오류가 발생했습니다.');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import './detail.css';
 
@@ -36,6 +36,7 @@ interface VoiceRecord {
 export default function ClientDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const clientId = params.id as string;
 
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -51,7 +52,7 @@ export default function ClientDetailPage() {
       fetchClientData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, searchParams]);
 
   const fetchClientData = async () => {
     try {
