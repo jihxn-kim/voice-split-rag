@@ -19,7 +19,7 @@ class Client(Base):
     name = Column(String(100), nullable=False)
     age = Column(Integer, nullable=False)
     gender = Column(String(10), nullable=False)  # 남성, 여성, 기타
-    total_sessions = Column(Integer, nullable=False, default=8)  # 전체 회기 수
+    total_sessions = Column(Integer, nullable=False, default=0)  # 전체 회기 수 (등록 후 추가)
     
     # 상담 정보 (입력 - 등록 시)
     consultation_background = Column(Text, nullable=False)  # 상담신청배경

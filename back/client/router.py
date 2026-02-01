@@ -28,13 +28,13 @@ def create_client(
     """내담자 등록 (AI 분석 없이)"""
     logger.info(f"Creating client: name={client_data.name}, counselor_id={current_user.id}")
     
-    # 내담자 생성 (AI 분석 없이)
+    # 내담자 생성 (AI 분석 없이, 회기 수는 0으로 시작)
     new_client = Client(
         user_id=current_user.id,
         name=client_data.name,
         age=client_data.age,
         gender=client_data.gender,
-        total_sessions=client_data.total_sessions,
+        total_sessions=0,  # 등록 후 추가
         consultation_background=client_data.consultation_background,
         main_complaint=client_data.main_complaint,
         has_previous_counseling=client_data.has_previous_counseling,

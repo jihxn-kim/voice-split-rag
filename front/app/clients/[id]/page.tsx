@@ -150,7 +150,12 @@ export default function ClientDetailPage() {
 
   const getSessionBoxes = () => {
     const boxes = [];
-    const totalSessions = client?.total_sessions || 8;
+    const totalSessions = client?.total_sessions || 0;
+    
+    // 회기가 0이면 빈 배열 반환
+    if (totalSessions === 0) {
+      return [];
+    }
     
     for (let i = 1; i <= totalSessions; i++) {
       const record = voiceRecords[i - 1];
@@ -295,7 +300,8 @@ export default function ClientDetailPage() {
               className="records-summary-btn"
             >
               <span className="records-summary-text">
-                📋 상담 기록 ({voiceRecords.length}/{client.total_sessions})
+                📋 상담 기록 ({voiceRecords.length}
+                {client.total_sessions > 0 ? `/${client.total_sessions}` : ''})
               </span>
               <span className="toggle-icon">{showRecordsView ? '▲' : '▼'}</span>
             </button>
@@ -303,8 +309,22 @@ export default function ClientDetailPage() {
 
           {showRecordsView && (
             <div className="session-boxes-container">
-              <div className="session-boxes-grid">
-                {getSessionBoxes().map((box) => (
+              {client.total_sessions === 0 ? (
+                <div className="no-sessions-message">
+                  <p>📊 회기를 추가하면 회기별 상담 기록을 관리할 수 있습니다.</p>
+                  <p className="sub-text">
+                    상단의 "회기 추가" 버튼을 눌러 전체 회기 수를 설정해주세요.
+                  </p>
+                  <button
+                    onClick={() => router.push(`/clients/${clientId}/upload`)}
+                    className="first-upload-btn"
+                  >
+                    🎙️ 첫 상담 음성 업로드하기
+                  </button>
+                </div>
+              ) : (
+                <div className="session-boxes-grid">
+                  {getSessionBoxes().map((box) => (
                   <div
                     key={box.sessionNumber}
                     className={`session-box ${box.record ? 'filled' : 'empty'}`}
@@ -332,7 +352,8 @@ export default function ClientDetailPage() {
                     )}
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

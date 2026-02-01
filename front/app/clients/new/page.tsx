@@ -14,7 +14,6 @@ export default function NewClientPage() {
     name: '',
     age: '',
     gender: '남성',
-    total_sessions: '8',
     consultation_background: '',
     main_complaint: '',
     has_previous_counseling: false,
@@ -150,23 +149,6 @@ export default function NewClientPage() {
                     <option value="여성">여성</option>
                     <option value="기타">기타</option>
                   </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="total_sessions" className="form-label">
-                    전체 회기 수 <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="total_sessions"
-                    name="total_sessions"
-                    value={formData.total_sessions}
-                    onChange={handleChange}
-                    className="form-input"
-                    min="1"
-                    max="100"
-                    required
-                  />
                 </div>
               </div>
             </div>
