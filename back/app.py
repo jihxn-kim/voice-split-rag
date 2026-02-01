@@ -105,8 +105,9 @@ Instrumentator().instrument(app).expose(app)
 
 # 라우터 등록
 from voice.history_router import router as history_router
+from client.router import router as client_router
 
-routers = [auth_router, voice_router, history_router]
+routers = [auth_router, voice_router, history_router, client_router]
 
 for router in routers:
     app.include_router(router)

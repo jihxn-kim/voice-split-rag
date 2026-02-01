@@ -23,6 +23,7 @@ class User(Base):
     
     # 관계
     voice_records = relationship("VoiceRecord", back_populates="user", cascade="all, delete-orphan")
+    clients = relationship("Client", back_populates="counselor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, username={self.username})>"

@@ -16,6 +16,7 @@ class VoiceRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)  # 기록 제목
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 업로드한 사용자
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)  # 내담자 ID
     
     # 파일 정보
     s3_key = Column(String(500), nullable=True)  # S3 키 (삭제된 경우 NULL)
@@ -38,6 +39,7 @@ class VoiceRecord(Base):
     
     # 관계
     user = relationship("User", back_populates="voice_records")
+    client = relationship("Client", back_populates="voice_records")
     
     def __repr__(self):
         return f"<VoiceRecord(id={self.id}, title='{self.title}', user_id={self.user_id})>"

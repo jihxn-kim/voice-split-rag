@@ -10,6 +10,7 @@ from config.dependencies import get_openai_client, get_assemblyai_api_key, get_s
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.client import Client
 from schemas.voice_record import VoiceRecordCreate, VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate
 from database import get_db
 from logs.logging_util import LoggerSingleton
@@ -37,6 +38,7 @@ class PresignedUrlRequest(BaseModel):
 
 class ProcessS3FileRequest(BaseModel):
     s3_key: str
+    client_id: int  # 내담자 ID (필수)
     language_code: str = "ko"
 
 @router.post("/generate-upload-url")
@@ -123,7 +125,7 @@ async def process_s3_file(
     """S3에 업로드된 파일을 다운로드하여 화자 구분 처리 및 DB 저장
     
     Args:
-        request: S3 키와 언어 코드
+        request: S3 키, 내담자 ID, 언어 코드
         current_user: 현재 로그인한 사용자 (JWT 인증 필수)
         db: 데이터베이스 세션
     
@@ -133,7 +135,16 @@ async def process_s3_file(
     temp_file_path = None
     
     try:
-        logger.info(f"/voice/process-s3-file called: s3_key={request.s3_key}, user_id={current_user.id}")
+        logger.info(f"/voice/process-s3-file called: s3_key={request.s3_key}, client_id={request.client_id}, user_id={current_user.id}")
+        
+        # 내담자가 현재 사용자의 것인지 확인
+        client = db.query(Client).filter(
+            Client.id == request.client_id,
+            Client.user_id == current_user.id
+        ).first()
+        
+        if not client:
+            raise BadRequest(f"Client not found or unauthorized: client_id={request.client_id}")
         
         if not api_key:
             raise BadRequest("ASSEMBLYAI_API_KEY 환경 변수가 설정되지 않았습니다.")
@@ -227,13 +238,14 @@ async def process_s3_file(
         # 원본 파일명 추출
         original_filename = os.path.basename(request.s3_key)
         
-        # 자동 제목 생성 (날짜 + 시간)
-        auto_title = f"음성 기록 - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        # 자동 제목 생성 (내담자 이름 + 날짜)
+        auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         
         # DB에 저장
         voice_record = VoiceRecord(
             title=auto_title,
             user_id=current_user.id,
+            client_id=request.client_id,
             s3_key=request.s3_key,
             original_filename=original_filename,
             total_speakers=len(speakers),

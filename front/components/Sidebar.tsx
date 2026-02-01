@@ -14,6 +14,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: "홈", path: "/", icon: "🏠" },
+    { name: "내담자 관리", path: "/clients", icon: "👥" },
     { name: "상담 기록", path: "/history", icon: "📋" },
   ];
 
@@ -27,7 +28,12 @@ export default function Sidebar() {
         {menuItems.map((item) => (
           <button
             key={item.path}
-            className={`nav-item ${pathname === item.path ? "active" : ""}`}
+            className={`nav-item ${
+              pathname === item.path || 
+              (item.path !== "/" && pathname.startsWith(item.path)) 
+                ? "active" 
+                : ""
+            }`}
             onClick={() => router.push(item.path)}
           >
             <span className="nav-icon">{item.icon}</span>
