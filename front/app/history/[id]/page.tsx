@@ -203,9 +203,6 @@ export default function RecordDetailPage() {
             <strong>화자 수:</strong> {record.total_speakers}명
           </div>
           <div className="meta-item">
-            <strong>언어:</strong> {record.language_code.toUpperCase()}
-          </div>
-          <div className="meta-item">
             <strong>길이:</strong>{" "}
             {record.duration ? formatTime(record.duration) : "N/A"}
           </div>

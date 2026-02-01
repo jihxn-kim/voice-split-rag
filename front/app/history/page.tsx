@@ -8,7 +8,6 @@ interface VoiceRecord {
   id: number;
   title: string;
   total_speakers: number;
-  language_code: string;
   duration: number | null;
   created_at: string;
   updated_at: string;
@@ -149,9 +148,6 @@ export default function HistoryPage() {
                 </span>
                 <span className="info-item">
                   ⏱️ {formatDuration(record.duration)}
-                </span>
-                <span className="info-item">
-                  🌐 {record.language_code.toUpperCase()}
                 </span>
               </div>
               <div className="record-date">
