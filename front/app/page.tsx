@@ -76,7 +76,9 @@ export default function Home() {
 
         if (res.ok) {
           const data = await res.json();
-          setRecentRecords(data.slice(0, 5)); // 최근 5개만
+          // data가 { records: [...], total: N } 형태
+          const recordsList = data.records || data;
+          setRecentRecords(Array.isArray(recordsList) ? recordsList.slice(0, 5) : []);
         }
       } catch (error) {
         console.error('Failed to fetch recent records:', error);
