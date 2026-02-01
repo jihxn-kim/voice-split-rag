@@ -41,9 +41,9 @@ env/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs (로그 파일만 무시, 디렉토리는 추적)
 *.log
-logs/
+logs/*.log
 
 # Google Cloud credentials
 *.json
