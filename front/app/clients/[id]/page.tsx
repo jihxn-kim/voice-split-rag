@@ -226,12 +226,6 @@ export default function ClientDetailPage() {
                 >
                   📊 회기 추가
                 </button>
-                <button
-                  onClick={() => router.push(`/clients/${clientId}/upload`)}
-                  className="upload-voice-btn"
-                >
-                  🎙️ 음성 업로드
-                </button>
               </div>
             </div>
 
@@ -313,16 +307,10 @@ export default function ClientDetailPage() {
             <div className="session-boxes-container">
               {client.total_sessions === 0 ? (
                 <div className="no-sessions-message">
-                  <p>📊 회기를 추가하면 회기별 상담 기록을 관리할 수 있습니다.</p>
+                  <p>📊 회기를 먼저 추가한 후, 회기별로 상담 음성을 업로드할 수 있습니다.</p>
                   <p className="sub-text">
                     상단의 &quot;회기 추가&quot; 버튼을 눌러 전체 회기 수를 설정해주세요.
                   </p>
-                  <button
-                    onClick={() => router.push(`/clients/${clientId}/upload`)}
-                    className="first-upload-btn"
-                  >
-                    🎙️ 첫 상담 음성 업로드하기
-                  </button>
                 </div>
               ) : (
                 <div className="session-boxes-grid">
