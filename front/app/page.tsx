@@ -93,31 +93,69 @@ export default function Home() {
     setIsDiarizing(true);
     setDiarizationResult(null);
     setErrorMsg("");
+    
     try {
-      const form = new FormData();
-      form.append("file", selectedFile);
-
-      // Next.js API Route를 통해 호출 (API 키는 서버에서 처리)
-      const res = await fetch("/api/diarize", {
+      // 1단계: Pre-signed URL 요청
+      const uploadUrlRes = await fetch("/api/upload-url", {
         method: "POST",
-        body: form,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          content_type: selectedFile.type || "audio/mpeg",
+        }),
       });
-      if (!res.ok) {
-        let message = `요청 실패 (HTTP ${res.status})`;
+
+      if (!uploadUrlRes.ok) {
+        const errJson = await uploadUrlRes.json();
+        throw new Error(errJson.message || "업로드 URL 생성 실패");
+      }
+
+      const { upload_url, s3_key } = await uploadUrlRes.json();
+
+      // 2단계: S3에 직접 업로드
+      const uploadRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": selectedFile.type || "audio/mpeg",
+        },
+        body: selectedFile,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`S3 업로드 실패 (HTTP ${uploadRes.status})`);
+      }
+
+      // 3단계: 백엔드에 처리 요청
+      const processRes = await fetch("/api/process-audio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          s3_key,
+          language_code: "ko",
+        }),
+      });
+
+      if (!processRes.ok) {
+        let message = `처리 실패 (HTTP ${processRes.status})`;
         try {
-          const errJson = await res.clone().json();
+          const errJson = await processRes.clone().json();
           if (errJson && typeof errJson === "object") {
             message =
               errJson.message || errJson.detail || JSON.stringify(errJson);
           }
         } catch (_) {}
         try {
-          const text = await res.text();
+          const text = await processRes.text();
           if (text) message = text;
         } catch (_) {}
         throw new Error(message);
       }
-      const data = await res.json();
+
+      const data = await processRes.json();
       setDiarizationResult(data);
     } catch (err: any) {
       setErrorMsg(err?.message || "화자 구분 처리 중 오류가 발생했습니다.");

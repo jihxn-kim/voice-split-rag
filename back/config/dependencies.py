@@ -7,6 +7,7 @@
 from fastapi import Request
 from openai import AsyncOpenAI
 from langsmith import Client as LangSmithClient
+import os
 
 ##### 클라이언트 의존성 주입 함수 정의 #####
 # app.py lifespan 에서 초기화된 클라이언트를 반환
@@ -23,3 +24,14 @@ def get_langsmith_client(request: Request) -> LangSmithClient:
 # AssemblyAI API Key
 def get_assemblyai_api_key(request: Request) -> str | None:
     return request.app.state.client_container.assemblyai_api_key
+
+# AWS S3 Client
+def get_s3_client(request: Request):
+    return request.app.state.client_container.s3_client
+
+# S3 Bucket Name
+def get_s3_bucket_name() -> str:
+    bucket_name = os.getenv("S3_BUCKET_NAME")
+    if not bucket_name:
+        raise ValueError("S3_BUCKET_NAME 환경 변수가 설정되지 않았습니다.")
+    return bucket_name

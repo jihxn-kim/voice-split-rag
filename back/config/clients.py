@@ -7,6 +7,7 @@
 from langsmith import Client as LangSmithClient
 from openai import AsyncOpenAI
 import assemblyai as aai
+import boto3
 import os
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ class ClientContainer:
         self.openai_client = None
         self.langsmith_client = None
         self.assemblyai_api_key = None
+        self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
 def initialize_clients() -> ClientContainer:
@@ -36,5 +38,18 @@ def initialize_clients() -> ClientContainer:
     if assemblyai_key:
         aai.settings.api_key = assemblyai_key
         container.assemblyai_api_key = assemblyai_key
+    
+    # AWS S3 클라이언트
+    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region = os.getenv("AWS_REGION", "us-east-1")
+    
+    if aws_access_key and aws_secret_key:
+        container.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=aws_region
+        )
 
     return container
