@@ -124,6 +124,7 @@ class PresignedUrlRequest(BaseModel):
 class ProcessS3FileRequest(BaseModel):
     s3_key: str
     client_id: Optional[int] = None  # 내담자 ID (선택)
+    session_number: Optional[int] = None  # 회기 번호 (선택)
     language_code: str = "ko"
 
 @router.post("/generate-upload-url")
@@ -314,7 +315,10 @@ async def process_s3_file(
         
         # 자동 제목 생성
         if client:
-            auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            if request.session_number:
+                auto_title = f"{client.name} - {request.session_number}회기 상담"
+            else:
+                auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         else:
             auto_title = f"상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         
@@ -323,6 +327,7 @@ async def process_s3_file(
             title=auto_title,
             user_id=current_user.id,
             client_id=request.client_id,
+            session_number=request.session_number,
             s3_key=request.s3_key,
             original_filename=original_filename,
             total_speakers=len(speakers),

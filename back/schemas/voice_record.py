@@ -35,6 +35,8 @@ class VoiceRecordResponse(BaseModel):
     id: int
     title: str
     user_id: int
+    client_id: Optional[int] = None
+    session_number: Optional[int] = None
     s3_key: Optional[str]
     original_filename: Optional[str]
     total_speakers: int
@@ -55,6 +57,8 @@ class VoiceRecordListItem(BaseModel):
     """음성 기록 목록 아이템 (간략)"""
     id: int
     title: str
+    client_id: Optional[int] = None
+    session_number: Optional[int] = None
     total_speakers: int
     language_code: str
     duration: Optional[int]

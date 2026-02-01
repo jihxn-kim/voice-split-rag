@@ -28,6 +28,7 @@ interface VoiceRecord {
   title: string;
   total_speakers: number;
   duration: number | null;
+  session_number: number | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -158,7 +159,8 @@ export default function ClientDetailPage() {
     }
     
     for (let i = 1; i <= totalSessions; i++) {
-      const record = voiceRecords[i - 1];
+      // session_number로 해당 회기의 기록 찾기
+      const record = voiceRecords.find((r: any) => r.session_number === i);
       boxes.push({
         sessionNumber: i,
         record: record || null,
@@ -332,7 +334,7 @@ export default function ClientDetailPage() {
                       if (box.record) {
                         router.push(`/history/${box.record.id}`);
                       } else {
-                        router.push(`/clients/${clientId}/upload`);
+                        router.push(`/clients/${clientId}/upload?session=${box.sessionNumber}`);
                       }
                     }}
                   >

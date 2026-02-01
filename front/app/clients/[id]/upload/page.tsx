@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Sidebar from '../../../../components/Sidebar';
 import './upload.css';
 
@@ -13,7 +13,9 @@ interface ClientInfo {
 export default function ClientUploadPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const clientId = params.id as string;
+  const sessionNumber = searchParams.get('session') ? parseInt(searchParams.get('session')!) : null;
 
   const [client, setClient] = useState<ClientInfo | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -185,7 +187,7 @@ export default function ClientUploadPage() {
         throw new Error(`S3 업로드 실패 (HTTP ${uploadRes.status})`);
       }
 
-      // 3단계: 백엔드에 처리 요청 (client_id 포함)
+      // 3단계: 백엔드에 처리 요청 (client_id, session_number 포함)
       const processRes = await fetch('/api/process-audio', {
         method: 'POST',
         headers: {
@@ -195,6 +197,7 @@ export default function ClientUploadPage() {
         body: JSON.stringify({
           s3_key,
           client_id: parseInt(clientId),
+          session_number: sessionNumber,
           language_code: 'ko',
         }),
       });
@@ -279,7 +282,7 @@ export default function ClientUploadPage() {
               ← 내담자 상세로
             </button>
             <h1 className="page-title">
-              🎙️ {client.name} - 상담 음성 업로드
+              🎙️ {client.name} - {sessionNumber ? `${sessionNumber}회기 ` : ''}상담 음성 업로드
             </h1>
           </div>
 

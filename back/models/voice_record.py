@@ -17,6 +17,7 @@ class VoiceRecord(Base):
     title = Column(String(200), nullable=False)  # 기록 제목
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 업로드한 사용자
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)  # 내담자 ID
+    session_number = Column(Integer, nullable=True)  # 회기 번호 (내담자 연결 시)
     
     # 파일 정보
     s3_key = Column(String(500), nullable=True)  # S3 키 (삭제된 경우 NULL)

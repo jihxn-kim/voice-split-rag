@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { s3_key, language_code, client_id } = body;
+    const { s3_key, language_code, client_id, session_number } = body;
 
     if (!s3_key) {
       return NextResponse.json(
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         s3_key,
         language_code: language_code || 'ko',
         client_id: client_id || null,
+        session_number: session_number || null,
       }),
     });
 
