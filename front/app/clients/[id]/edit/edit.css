@@ -152,11 +152,23 @@
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
+  min-width: 90px;
 }
 
 .btn-copy:hover {
   background: #3b82f6;
   color: white;
+}
+
+.btn-copy.copied {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.btn-copy.copied:hover {
+  background: #059669;
+  border-color: #059669;
 }
 
 .ai-analysis-box p {
