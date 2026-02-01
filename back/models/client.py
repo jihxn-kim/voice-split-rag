@@ -20,11 +20,17 @@ class Client(Base):
     age = Column(Integer, nullable=False)
     gender = Column(String(10), nullable=False)  # 남성, 여성, 기타
     
-    # 상담 정보
+    # 상담 정보 (입력)
     consultation_background = Column(Text, nullable=False)  # 상담신청배경
     main_complaint = Column(Text, nullable=False)  # 주호소문제
     has_previous_counseling = Column(Boolean, nullable=False)  # 상담이전경력(유무)
     current_symptoms = Column(Text, nullable=False)  # 현재 나타나고 있는 증상(본인호소)
+    
+    # AI 분석 결과 (자동 생성)
+    ai_consultation_background = Column(Text, nullable=True)  # AI 분석: 상담신청 배경
+    ai_main_complaint = Column(Text, nullable=True)  # AI 분석: 주호소내용
+    ai_counseling_goals = Column(Text, nullable=True)  # AI 분석: 10회기상담목표
+    ai_counseling_strategy = Column(Text, nullable=True)  # AI 분석: 상담전략
     
     # 메타데이터
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -144,6 +144,56 @@
   color: #9ca3af;
 }
 
+/* AI 분석 결과 스타일 */
+.ai-analysis-section {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border: 2px solid #667eea;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.ai-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #667eea;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-info-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.ai-info-section {
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.ai-info-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #667eea;
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-info-text {
+  font-size: 1rem;
+  color: #374151;
+  line-height: 1.8;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .voice-records-section {
   background: white;
   border-radius: 16px;
