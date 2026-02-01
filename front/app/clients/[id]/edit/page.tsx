@@ -46,32 +46,20 @@ export default function ClientEditPage() {
   const [showAiComplaint, setShowAiComplaint] = useState(false);
   const [showAiSymptoms, setShowAiSymptoms] = useState(false);
 
-  // 복사 완료 상태
-  const [copiedBackground, setCopiedBackground] = useState(false);
-  const [copiedComplaint, setCopiedComplaint] = useState(false);
-  const [copiedSymptoms, setCopiedSymptoms] = useState(false);
-
-  // 토스트 알림 상태
+  // 토스트 알림 및 복사 상태
   const [showToast, setShowToast] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // 클립보드 복사 함수
-  const copyToClipboard = async (text: string, field: 'background' | 'complaint' | 'symptoms') => {
+  const copyToClipboard = async (text: string, fieldName: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      
-      // 복사 완료 상태 설정
-      if (field === 'background') {
-        setCopiedBackground(true);
-        setTimeout(() => setCopiedBackground(false), 2000);
-      } else if (field === 'complaint') {
-        setCopiedComplaint(true);
-        setTimeout(() => setCopiedComplaint(false), 2000);
-      } else if (field === 'symptoms') {
-        setCopiedSymptoms(true);
-        setTimeout(() => setCopiedSymptoms(false), 2000);
-      }
+      setTimeout(() => {
+        setShowToast(false);
+        setCopiedField(null);
+      }, 3000);
     } catch (err) {
       console.error('Failed to copy:', err);
       alert('클립보드 복사에 실패했습니다.');
@@ -295,10 +283,10 @@ export default function ClientEditPage() {
                     <button
                       type="button"
                       className="btn-copy"
-                      onClick={() => copyToClipboard(client.ai_consultation_background!)}
+                      onClick={() => copyToClipboard(client.ai_consultation_background!, 'aiBackground')}
                       title="클립보드에 복사"
                     >
-                      📋 복사
+                      {copiedField === 'aiBackground' ? '✅ 복사 완료' : '📋 복사'}
                     </button>
                   </div>
                   <p>{client.ai_consultation_background}</p>
@@ -333,11 +321,11 @@ export default function ClientEditPage() {
                     <strong>📊 1회기 상담 기반 AI 분석:</strong>
                     <button
                       type="button"
-                      className={`btn-copy ${copiedComplaint ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(client.ai_main_complaint!, 'complaint')}
+                      className="btn-copy"
+                      onClick={() => copyToClipboard(client.ai_main_complaint!, 'aiComplaint')}
                       title="클립보드에 복사"
                     >
-                      {copiedComplaint ? '✅ 복사됨' : '📋 복사'}
+                      {copiedField === 'aiComplaint' ? '✅ 복사 완료' : '📋 복사'}
                     </button>
                   </div>
                   <p>{client.ai_main_complaint}</p>
@@ -372,11 +360,11 @@ export default function ClientEditPage() {
                     <strong>📊 1회기 상담 기반 AI 분석:</strong>
                     <button
                       type="button"
-                      className={`btn-copy ${copiedSymptoms ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(client.ai_current_symptoms!, 'symptoms')}
+                      className="btn-copy"
+                      onClick={() => copyToClipboard(client.ai_current_symptoms!, 'aiSymptoms')}
                       title="클립보드에 복사"
                     >
-                      {copiedSymptoms ? '✅ 복사됨' : '📋 복사'}
+                      {copiedField === 'aiSymptoms' ? '✅ 복사 완료' : '📋 복사'}
                     </button>
                   </div>
                   <p>{client.ai_current_symptoms}</p>
@@ -407,6 +395,13 @@ export default function ClientEditPage() {
             </div>
           </form>
         </div>
+
+        {/* 토스트 알림 */}
+        {showToast && (
+          <div className="toast-notification">
+            ✅ 클립보드에 복사 완료
+          </div>
+        )}
       </div>
     </div>
   );
