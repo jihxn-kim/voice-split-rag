@@ -4,9 +4,9 @@
 #                                                   #
 #####################################################
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Header
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, BackgroundTasks
 from sqlalchemy.orm import Session
-from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
+from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name, get_openai_client
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
@@ -17,16 +17,101 @@ from logs.logging_util import LoggerSingleton
 import logging
 from config.exception import BadRequest, InternalError, AppException
 from pydantic import BaseModel
+from openai import AsyncOpenAI
 import assemblyai as aai
 import tempfile
 import os
 import uuid
+import json
 from datetime import datetime, timedelta
 
 # 로거 설정
 logger = LoggerSingleton.get_logger(logger_name="voice", level=logging.INFO)
 
 router = APIRouter(prefix="/voice")
+
+
+async def analyze_first_session(db: Session, client: Client, dialogue: str, full_transcript: str):
+    """1회기 상담 내용을 바탕으로 AI 분석 수행"""
+    try:
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+        
+        if not client_container.openai_client:
+            logger.warning("OpenAI client not available, skipping AI analysis")
+            return
+        
+        # 상담 경력 텍스트 변환
+        counseling_history = "있음" if client.has_previous_counseling else "없음"
+        
+        prompt = f"""
+당신은 전문 심리 상담사입니다. 1회기 상담 내용을 바탕으로 내담자를 재평가해주세요.
+
+## 내담자 초기 정보
+- 이름: {client.name}
+- 나이: {client.age}세
+- 성별: {client.gender}
+- 초기 상담신청배경: {client.consultation_background}
+- 초기 주호소문제: {client.main_complaint}
+- 상담이전경력: {counseling_history}
+- 초기 증상(본인호소): {client.current_symptoms}
+
+## 1회기 상담 내용
+{dialogue}
+
+## 요청사항
+1회기 실제 상담 내용을 바탕으로 다음 3가지를 **전문적이고 상세하게** 재평가해주세요:
+
+1. **상담신청 배경**: 1회기 상담을 통해 파악된 실제 상담신청 배경과 맥락을 전문적 관점에서 분석
+2. **주호소문제**: 1회기 상담에서 드러난 주요 문제들을 심리학적 관점에서 체계적으로 정리
+3. **현재 증상**: 1회기 상담에서 관찰되고 파악된 증상들을 구체적으로 기술
+
+각 항목은 최소 3-4문장 이상으로 전문적이면서도 이해하기 쉽게 작성해주세요.
+**중요**: 모든 값은 반드시 문자열(string) 형식으로 작성해주세요.
+
+JSON 형식으로 응답:
+{{
+    "consultation_background": "1회기 기반 상담신청 배경 분석",
+    "main_complaint": "1회기 기반 주호소문제 분석",
+    "current_symptoms": "1회기 기반 현재 증상 분석"
+}}
+"""
+        
+        response = await client_container.openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "당신은 임상심리 전문가이자 전문 상담사입니다. 1회기 상담 내용을 분석하여 내담자의 실제 상태를 정확히 파악합니다."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        
+        # dict 타입의 값들을 JSON 문자열로 변환
+        for key, value in result.items():
+            if isinstance(value, dict):
+                result[key] = json.dumps(value, ensure_ascii=False)
+        
+        # 클라이언트 정보 업데이트
+        client.ai_consultation_background = result.get("consultation_background")
+        client.ai_main_complaint = result.get("main_complaint")
+        client.ai_current_symptoms = result.get("current_symptoms")
+        client.ai_analysis_completed = True
+        
+        db.commit()
+        logger.info(f"AI analysis completed for client_id={client.id}")
+        
+    except Exception as e:
+        logger.error(f"AI analysis failed for client_id={client.id}: {str(e)}")
+        # 분석 실패해도 음성 기록 자체는 유지
 
 
 # Pydantic 모델
@@ -244,12 +329,15 @@ async def process_s3_file(
         
         logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}")
         
-        # S3에서 파일 삭제 (선택사항 - 이제는 기록을 보관하므로 삭제하지 않음)
-        # try:
-        #     s3_client.delete_object(Bucket=bucket_name, Key=request.s3_key)
-        #     logger.info(f"S3 file deleted: {request.s3_key}")
-        # except Exception as e:
-        #     logger.warning(f"Failed to delete S3 file: {e}")
+        # 1회기 확인: 해당 내담자의 첫 번째 음성 기록인지 확인
+        total_records = db.query(VoiceRecord).filter(VoiceRecord.client_id == request.client_id).count()
+        
+        if total_records == 1:
+            # 1회기이면 백그라운드에서 AI 분석 수행
+            logger.info(f"First session detected for client_id={request.client_id}, scheduling AI analysis")
+            # 여기서는 동기적으로 처리 (간단한 방법)
+            # 프로덕션에서는 Celery 등의 백그라운드 작업 큐 사용 권장
+            await analyze_first_session(db, client, dialogue, full_transcript)
         
         return voice_record
         

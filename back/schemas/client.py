@@ -38,10 +38,10 @@ class ClientResponse(ClientBase):
     """내담자 응답 스키마"""
     id: int
     user_id: int
-    ai_consultation_background: Optional[str] = None  # AI 분석 결과
+    ai_consultation_background: Optional[str] = None  # 1회기 기반 AI 분석
     ai_main_complaint: Optional[str] = None
-    ai_counseling_goals: Optional[str] = None
-    ai_counseling_strategy: Optional[str] = None
+    ai_current_symptoms: Optional[str] = None
+    ai_analysis_completed: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 

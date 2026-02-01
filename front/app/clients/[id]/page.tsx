@@ -16,8 +16,8 @@ interface ClientDetail {
   current_symptoms: string;
   ai_consultation_background: string | null;
   ai_main_complaint: string | null;
-  ai_counseling_goals: string | null;
-  ai_counseling_strategy: string | null;
+  ai_current_symptoms: string | null;
+  ai_analysis_completed: boolean;
   created_at: string;
   updated_at: string | null;
 }
@@ -187,45 +187,45 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {/* AI 분석 결과 섹션 */}
-            {(client.ai_consultation_background || 
-              client.ai_main_complaint || 
-              client.ai_counseling_goals || 
-              client.ai_counseling_strategy) && (
-              <div className="ai-analysis-section">
-                <h2 className="ai-section-title">🤖 AI 상담 계획 분석</h2>
-                
-                <div className="ai-info-grid">
-                  {client.ai_consultation_background && (
-                    <div className="ai-info-section">
-                      <h3 className="ai-info-title">📋 상담신청 배경 분석</h3>
-                      <p className="ai-info-text">{client.ai_consultation_background}</p>
-                    </div>
-                  )}
+            <div className="action-buttons">
+              <button
+                onClick={() => router.push(`/clients/${clientId}/edit`)}
+                className="edit-btn"
+              >
+                ✏️ 정보 수정
+              </button>
+            </div>
+          </div>
 
-                  {client.ai_main_complaint && (
-                    <div className="ai-info-section">
-                      <h3 className="ai-info-title">💭 주호소내용 분석</h3>
-                      <p className="ai-info-text">{client.ai_main_complaint}</p>
-                    </div>
-                  )}
+          {/* AI 분석 결과 섹션 - 1회기 기반 */}
+          {client.ai_analysis_completed && (
+            <div className="ai-analysis-section">
+              <h2 className="ai-section-title">📊 1회기 상담 기반 AI 분석</h2>
+              
+              <div className="ai-info-grid">
+                {client.ai_consultation_background && (
+                  <div className="ai-info-section">
+                    <h3 className="ai-info-title">✨ 상담신청 배경</h3>
+                    <p className="ai-info-text">{client.ai_consultation_background}</p>
+                  </div>
+                )}
 
-                  {client.ai_counseling_goals && (
-                    <div className="ai-info-section">
-                      <h3 className="ai-info-title">🎯 10회기 상담목표</h3>
-                      <p className="ai-info-text">{client.ai_counseling_goals}</p>
-                    </div>
-                  )}
+                {client.ai_main_complaint && (
+                  <div className="ai-info-section">
+                    <h3 className="ai-info-title">💡 주호소문제</h3>
+                    <p className="ai-info-text">{client.ai_main_complaint}</p>
+                  </div>
+                )}
 
-                  {client.ai_counseling_strategy && (
-                    <div className="ai-info-section">
-                      <h3 className="ai-info-title">💡 상담전략</h3>
-                      <p className="ai-info-text">{client.ai_counseling_strategy}</p>
-                    </div>
-                  )}
-                </div>
+                {client.ai_current_symptoms && (
+                  <div className="ai-info-section">
+                    <h3 className="ai-info-title">🩺 현재 증상</h3>
+                    <p className="ai-info-text">{client.ai_current_symptoms}</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
             <div className="info-footer">
               <span className="info-date">등록일: {formatDate(client.created_at)}</span>
@@ -233,7 +233,17 @@ export default function ClientDetailPage() {
           </div>
 
           <div className="voice-records-section">
-            <h2 className="section-title">상담 기록 ({voiceRecords.length})</h2>
+            <div className="section-header">
+              <h2 className="section-title">상담 기록 ({voiceRecords.length})</h2>
+              {voiceRecords.length > 0 && (
+                <button
+                  onClick={() => router.push(`/clients/${clientId}/upload`)}
+                  className="add-record-btn"
+                >
+                  + 상담 기록 추가
+                </button>
+              )}
+            </div>
 
             {voiceRecords.length === 0 ? (
               <div className="empty-records">

@@ -106,6 +106,32 @@
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
+.action-buttons {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 1rem;
+}
+
+.edit-btn {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: #374151;
+}
+
+.edit-btn:hover {
+  background: #f9fafb;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
 .info-grid {
   display: grid;
   gap: 1.5rem;
@@ -201,11 +227,35 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
 .section-title {
   font-size: 1.5rem;
   font-weight: 700;
   color: #1f2937;
-  margin: 0 0 1.5rem 0;
+  margin: 0;
+}
+
+.add-record-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #6366f1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: #6366f1;
+}
+
+.add-record-btn:hover {
+  background: #6366f1;
+  color: white;
 }
 
 .empty-records {
