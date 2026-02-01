@@ -152,7 +152,7 @@ async def build_rag_context(
                 SELECT content
                 FROM voice_record_chunks
                 WHERE voice_record_id = :record_id
-                ORDER BY embedding <=> :embedding::vector
+                ORDER BY embedding <=> CAST(:embedding AS vector)
                 LIMIT :limit
                 """
             ),
@@ -568,7 +568,7 @@ def run_stt_processing_background(
                                     """
                                     INSERT INTO voice_record_chunks
                                     (voice_record_id, client_id, session_number, chunk_index, content, embedding)
-                                    VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, :embedding::vector)
+                                VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
                                     """
                                 ),
                                 {
