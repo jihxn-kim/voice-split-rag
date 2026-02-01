@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Sidebar from "../../../components/Sidebar";
 import "./detail.css";
 
 interface VoiceRecordDetail {
@@ -131,131 +132,106 @@ export default function RecordDetailPage() {
 
   if (loading) {
     return (
-      <div className="detail-container">
-        <div className="loading">기록을 불러오는 중...</div>
+      <div className="main-layout">
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">기록을 불러오는 중...</div>
+        </div>
       </div>
     );
   }
 
   if (error || !record) {
     return (
-      <div className="detail-container">
-        <div className="error-message">
-          {error || "기록을 찾을 수 없습니다."}
-          <button onClick={() => router.push("/history")} className="back-btn">
-            목록으로
-          </button>
+      <div className="main-layout">
+        <Sidebar />
+        <div className="main-content">
+          <div className="error-message">
+            {error || "기록을 찾을 수 없습니다."}
+            <button onClick={() => router.push("/history")} className="back-btn">
+              목록으로
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="detail-container">
-      <div className="detail-header">
-        <button onClick={() => router.push("/history")} className="back-btn">
-          ← 목록으로
-        </button>
-        <button onClick={() => router.push("/")} className="upload-btn">
-          새 음성 업로드
-        </button>
-      </div>
-
-      <div className="detail-card">
-        <div className="title-section">
-          {editingTitle ? (
-            <div className="title-edit">
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="title-input"
-                autoFocus
-              />
-              <button onClick={handleUpdateTitle} className="save-btn">
-                저장
-              </button>
-              <button
-                onClick={() => {
-                  setEditingTitle(false);
-                  setNewTitle(record.title);
-                }}
-                className="cancel-btn"
-              >
-                취소
-              </button>
-            </div>
-          ) : (
-            <div className="title-display">
-              <h1 className="detail-title">{record.title}</h1>
-              <button
-                onClick={() => setEditingTitle(true)}
-                className="edit-btn"
-              >
-                ✏️ 수정
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="metadata">
-          <div className="meta-item">
-            <strong>화자 수:</strong> {record.total_speakers}명
+    <div className="main-layout">
+      <Sidebar />
+      <div className="main-content">
+        <div className="detail-container">
+          <div className="detail-header">
+            <button onClick={() => router.push("/history")} className="back-btn">
+              ← 목록으로
+            </button>
           </div>
-          <div className="meta-item">
-            <strong>길이:</strong>{" "}
-            {record.duration ? formatTime(record.duration) : "N/A"}
-          </div>
-          <div className="meta-item">
-            <strong>생성일:</strong> {formatDate(record.created_at)}
-          </div>
-          {record.updated_at !== record.created_at && (
-            <div className="meta-item">
-              <strong>수정일:</strong> {formatDate(record.updated_at)}
-            </div>
-          )}
-        </div>
 
-        <div className="section">
-          <h2 className="section-title">전체 대화</h2>
-          <div className="transcript-box">{record.full_transcript}</div>
-        </div>
-
-        <div className="section">
-          <h2 className="section-title">화자별 대화</h2>
-          <div className="speakers-list">
-            {record.speakers_data.map((speaker) => (
-              <div key={speaker.speaker_id} className="speaker-card">
-                <div className="speaker-header">
-                  <h3>발화자 {speaker.speaker_id}</h3>
-                  <span className="speaker-time">
-                    {formatTime(speaker.start_time)} ~{" "}
-                    {formatTime(speaker.end_time)} (
-                    {formatTime(speaker.duration)})
-                  </span>
+          <div className="detail-card">
+            <div className="title-section">
+              {editingTitle ? (
+                <div className="title-edit">
+                  <input
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="title-input"
+                    autoFocus
+                  />
+                  <button onClick={handleUpdateTitle} className="save-btn">
+                    저장
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingTitle(false);
+                      setNewTitle(record.title);
+                    }}
+                    className="cancel-btn"
+                  >
+                    취소
+                  </button>
                 </div>
-                <p className="speaker-text">{speaker.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="section">
-          <h2 className="section-title">시간순 대화</h2>
-          <div className="segments-list">
-            {record.segments_data.map((segment, index) => (
-              <div key={index} className="segment-item">
-                <div className="segment-header">
-                  <span className="segment-speaker">
-                    발화자 {segment.speaker_id}
-                  </span>
-                  <span className="segment-time">
-                    {formatTime(segment.start_time)}
-                  </span>
+              ) : (
+                <div className="title-display">
+                  <h1 className="detail-title">{record.title}</h1>
+                  <button
+                    onClick={() => setEditingTitle(true)}
+                    className="edit-btn"
+                  >
+                    ✏️ 수정
+                  </button>
                 </div>
-                <p className="segment-text">{segment.text}</p>
+              )}
+            </div>
+
+            <div className="metadata">
+              <div className="meta-item">
+                <strong>화자 수:</strong> {record.total_speakers}명
               </div>
-            ))}
+              <div className="meta-item">
+                <strong>생성일:</strong> {formatDate(record.created_at)}
+              </div>
+            </div>
+
+            <div className="section">
+              <h2 className="section-title">📝 상담 대화</h2>
+              <div className="segments-list">
+                {record.segments_data.map((segment, index) => (
+                  <div key={index} className="segment-item">
+                    <div className="segment-header">
+                      <span className="segment-speaker">
+                        발화자 {segment.speaker_id}
+                      </span>
+                      <span className="segment-time">
+                        {formatTime(segment.start_time)}
+                      </span>
+                    </div>
+                    <p className="segment-text">{segment.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

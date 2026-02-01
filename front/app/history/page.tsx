@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Sidebar from "../../components/Sidebar";
 import "./history.css";
 
 interface VoiceRecord {
@@ -84,79 +85,74 @@ export default function HistoryPage() {
   };
 
   const handleBackToUpload = () => {
-    router.push("/");
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    router.push("/login");
+    router.push("/upload");
   };
 
   if (loading) {
     return (
-      <div className="history-container">
-        <div className="loading">기록을 불러오는 중...</div>
+      <div className="main-layout">
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">기록을 불러오는 중...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="history-container">
-      <div className="history-header">
-        <div>
-          <h1 className="history-title">음성 기록 목록</h1>
-          <p className="history-subtitle">총 {total}개의 기록</p>
-        </div>
-        <div className="header-buttons">
-          <button onClick={handleBackToUpload} className="upload-btn">
-            새 음성 업로드
-          </button>
-          <button onClick={handleLogout} className="logout-btn">
-            로그아웃
-          </button>
+    <div className="main-layout">
+      <Sidebar />
+      <div className="main-content">
+        <div className="history-container">
+          <div className="history-header">
+            <div>
+              <h1 className="history-title">📋 상담 기록</h1>
+              <p className="history-subtitle">총 {total}개의 기록</p>
+            </div>
+            <button onClick={handleBackToUpload} className="upload-btn">
+              🎙️ 새 음성 업로드
+            </button>
+          </div>
+
+          {error && (
+            <div className="error-message">
+              {error}
+              <button onClick={fetchRecords} className="retry-btn">
+                다시 시도
+              </button>
+            </div>
+          )}
+
+          {records.length === 0 ? (
+            <div className="empty-state">
+              <p>아직 기록이 없습니다.</p>
+              <button onClick={handleBackToUpload} className="upload-btn">
+                첫 음성 업로드하기
+              </button>
+            </div>
+          ) : (
+            <div className="records-grid">
+              {records.map((record) => (
+                <div
+                  key={record.id}
+                  className="record-card"
+                  onClick={() => handleRecordClick(record.id)}
+                >
+                  <div className="record-title">{record.title}</div>
+                  <div className="record-info">
+                    <span className="info-item">
+                      👥 {record.total_speakers}명
+                    </span>
+                  </div>
+                  <div className="record-date">
+                    {formatDate(record.created_at)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {error && (
-        <div className="error-message">
-          {error}
-          <button onClick={fetchRecords} className="retry-btn">
-            다시 시도
-          </button>
-        </div>
-      )}
-
-      {records.length === 0 ? (
-        <div className="empty-state">
-          <p>아직 기록이 없습니다.</p>
-          <button onClick={handleBackToUpload} className="upload-btn">
-            첫 음성 업로드하기
-          </button>
-        </div>
-      ) : (
-        <div className="records-grid">
-          {records.map((record) => (
-            <div
-              key={record.id}
-              className="record-card"
-              onClick={() => handleRecordClick(record.id)}
-            >
-              <div className="record-title">{record.title}</div>
-              <div className="record-info">
-                <span className="info-item">
-                  👥 {record.total_speakers}명
-                </span>
-                <span className="info-item">
-                  ⏱️ {formatDuration(record.duration)}
-                </span>
-              </div>
-              <div className="record-date">
-                {formatDate(record.created_at)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
