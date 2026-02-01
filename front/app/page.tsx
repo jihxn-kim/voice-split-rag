@@ -1,29 +1,29 @@
-import { useEffect, useRef, useState } from "react";
-import "./App.css";
+'use client'
 
-function App() {
-  const [selectedFile, setSelectedFile] = useState(null);
+import { useEffect, useRef, useState } from "react";
+import "./page.css";
+
+export default function Home() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const [audioDurationSec, setAudioDurationSec] = useState(null);
+  const [audioDurationSec, setAudioDurationSec] = useState<number | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
   const [isDiarizing, setIsDiarizing] = useState(false);
-  const [diarizationResult, setDiarizationResult] = useState(null);
+  const [diarizationResult, setDiarizationResult] = useState<any>(null);
 
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [shouldAutoDiarize, setShouldAutoDiarize] = useState(false);
 
   const API_BASE =
-    (import.meta && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
-    "http://localhost:8000";
-  // "http://13.125.196.35:8000";
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
   const pickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  const formatBytes = (bytes) => {
+  const formatBytes = (bytes: number) => {
     if (!Number.isFinite(bytes)) return "";
     const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
@@ -35,7 +35,7 @@ function App() {
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     if (!Number.isFinite(seconds)) return "";
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -44,7 +44,7 @@ function App() {
     return `${mm}:${ss}`;
   };
 
-  const acceptAudioFile = (fileList) => {
+  const acceptAudioFile = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const firstAudio = Array.from(fileList).find(
       (f) => f.type && f.type.startsWith("audio/")
@@ -57,25 +57,25 @@ function App() {
     setShouldAutoDiarize(true);
   };
 
-  const onFileChange = (e) => {
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     acceptAudioFile(e.target.files);
     e.target.value = "";
   };
 
-  const onDrop = (e) => {
+  const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     acceptAudioFile(e.dataTransfer.files);
   };
 
-  const onDragOver = (e) => {
+  const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isDragging) setIsDragging(true);
   };
 
-  const onDragLeave = (e) => {
+  const onDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -121,7 +121,7 @@ function App() {
       }
       const data = await res.json();
       setDiarizationResult(data);
-    } catch (err) {
+    } catch (err: any) {
       setErrorMsg(err?.message || "화자 구분 처리 중 오류가 발생했습니다.");
     } finally {
       setIsDiarizing(false);
@@ -164,7 +164,7 @@ function App() {
       }
       const data = await res.json();
       setDiarizationResult(data);
-    } catch (err) {
+    } catch (err: any) {
       setErrorMsg(
         err?.message || "화자 구분 및 오디오 분할 처리 중 오류가 발생했습니다."
       );
@@ -196,6 +196,7 @@ function App() {
         }
       })();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoDiarize, selectedFile, isDiarizing]);
 
   return (
@@ -271,7 +272,7 @@ function App() {
                   <div className="size">{formatBytes(selectedFile.size)}</div>
                   {Number.isFinite(audioDurationSec) && (
                     <div className="duration">
-                      길이 {formatTime(audioDurationSec)}
+                      길이 {formatTime(audioDurationSec!)}
                     </div>
                   )}
                 </div>
@@ -359,7 +360,7 @@ function App() {
                           >
                             화자별 발화
                           </h3>
-                          {diarizationResult.speakers.map((speaker, index) => (
+                          {diarizationResult.speakers.map((speaker: any, index: number) => (
                             <div
                               key={speaker.speaker_id}
                               style={{
@@ -435,5 +436,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
