@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import './detail.css';
@@ -33,6 +33,15 @@ interface VoiceRecord {
   updated_at: string | null;
 }
 
+interface UploadStatus {
+  id: number;
+  session_number: number | null;
+  status: 'queued' | 'processing' | 'failed' | string;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export default function ClientDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -41,6 +50,7 @@ export default function ClientDetailPage() {
 
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [voiceRecords, setVoiceRecords] = useState<VoiceRecord[]>([]);
+  const [pendingUploads, setPendingUploads] = useState<UploadStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -53,6 +63,35 @@ export default function ClientDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, searchParams]);
+
+  const fetchVoiceRecords = useCallback(async (tokenOverride?: string) => {
+    try {
+      const token = tokenOverride || localStorage.getItem('access_token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const recordsRes = await fetch(`/api/clients/${clientId}/voice-records`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (recordsRes.ok) {
+        const recordsData = await recordsRes.json();
+        console.log('Voice records fetched:', recordsData); // 디버깅용
+        const records = recordsData?.records;
+        setVoiceRecords(Array.isArray(records) ? records : Array.isArray(recordsData) ? recordsData : []);
+        setPendingUploads(Array.isArray(recordsData?.uploads) ? recordsData.uploads : []);
+      } else if (recordsRes.status === 401) {
+        localStorage.removeItem('access_token');
+        router.push('/login');
+      }
+    } catch (err) {
+      console.error('Failed to fetch voice records:', err);
+    }
+  }, [clientId, router]);
 
   const fetchClientData = async () => {
     try {
@@ -84,24 +123,27 @@ export default function ClientDetailPage() {
       const clientData = await clientRes.json();
       setClient(clientData);
 
-      // 음성 기록 조회
-      const recordsRes = await fetch(`/api/clients/${clientId}/voice-records`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (recordsRes.ok) {
-        const recordsData = await recordsRes.json();
-        console.log('Voice records fetched:', recordsData); // 디버깅용
-        setVoiceRecords(recordsData.records || recordsData || []);
-      }
+      await fetchVoiceRecords(token);
     } catch (err: any) {
       setError(err.message || '오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!clientId) return;
+    const hasPending = pendingUploads.some(
+      (upload) => upload.status === 'queued' || upload.status === 'processing'
+    );
+    if (!hasPending) return;
+
+    const intervalId = setInterval(() => {
+      fetchVoiceRecords();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [clientId, pendingUploads, fetchVoiceRecords]);
 
   const updateSessionCount = async () => {
     const count = parseInt(newSessionCount);
@@ -159,6 +201,22 @@ export default function ClientDetailPage() {
     if (totalSessions === 0) {
       return [];
     }
+
+    const uploadsBySession = new Map<number, UploadStatus>();
+    pendingUploads.forEach((upload) => {
+      const sessionNum = Number(upload.session_number);
+      if (!Number.isFinite(sessionNum) || sessionNum < 1) return;
+      const existing = uploadsBySession.get(sessionNum);
+      if (!existing) {
+        uploadsBySession.set(sessionNum, upload);
+        return;
+      }
+      const existingTime = new Date(existing.created_at).getTime();
+      const nextTime = new Date(upload.created_at).getTime();
+      if (nextTime > existingTime) {
+        uploadsBySession.set(sessionNum, upload);
+      }
+    });
     
     for (let i = 1; i <= totalSessions; i++) {
       // session_number로 해당 회기의 기록 찾기
@@ -172,6 +230,7 @@ export default function ClientDetailPage() {
       boxes.push({
         sessionNumber: i,
         record: record || null,
+        upload: uploadsBySession.get(i) || null,
       });
     }
     return boxes;
@@ -322,34 +381,64 @@ export default function ClientDetailPage() {
                 </div>
               ) : (
                 <div className="session-boxes-grid">
-                  {getSessionBoxes().map((box) => (
-                  <div
-                    key={box.sessionNumber}
-                    className={`session-box ${box.record ? 'filled' : 'empty'}`}
-                    onClick={() => {
-                      if (box.record) {
-                        router.push(`/history/${box.record.id}`);
-                      } else {
-                        router.push(`/clients/${clientId}/upload?session=${box.sessionNumber}`);
-                      }
-                    }}
-                  >
-                    <div className="session-number">{box.sessionNumber}회기</div>
-                    {box.record ? (
-                      <div className="session-info">
-                        <div className="session-title">{box.record.title}</div>
-                        <div className="session-date">
-                          {formatDate(box.record.created_at)}
-                        </div>
+                  {getSessionBoxes().map((box) => {
+                    const uploadStatus = box.upload?.status;
+                    const isUploading = uploadStatus === 'queued' || uploadStatus === 'processing';
+                    const isFailed = uploadStatus === 'failed';
+                    const hasRecord = Boolean(box.record);
+                    const showFailed = isFailed && !hasRecord && !isUploading;
+                    const boxState = isUploading
+                      ? 'uploading'
+                      : hasRecord
+                        ? 'filled'
+                        : showFailed
+                          ? 'failed'
+                          : 'empty';
+                    return (
+                      <div
+                        key={box.sessionNumber}
+                        className={`session-box ${boxState}`}
+                        onClick={() => {
+                          if (isUploading) return;
+                          if (box.record) {
+                            router.push(`/history/${box.record.id}`);
+                          } else {
+                            router.push(`/clients/${clientId}/upload?session=${box.sessionNumber}`);
+                          }
+                        }}
+                      >
+                        <div className="session-number">{box.sessionNumber}회기</div>
+                        {isUploading ? (
+                          <div className="session-uploading">
+                            <div className="uploading-spinner" />
+                            <div className="uploading-text">업로드 중...</div>
+                            <div className="uploading-subtext">
+                              {uploadStatus === 'queued' ? '대기 중' : 'STT 처리 중'}
+                              {box.sessionNumber === 1 ? ' · AI 분석 포함' : ''}
+                            </div>
+                          </div>
+                        ) : hasRecord ? (
+                          <div className="session-info">
+                            <div className="session-title">{box.record.title}</div>
+                            <div className="session-date">
+                              {formatDate(box.record.created_at)}
+                            </div>
+                          </div>
+                        ) : showFailed ? (
+                          <div className="session-failed">
+                            <span className="failed-icon">⚠️</span>
+                            <span className="failed-text">업로드 실패</span>
+                            <span className="failed-subtext">클릭해서 다시 업로드</span>
+                          </div>
+                        ) : (
+                          <div className="session-empty">
+                            <span className="upload-icon">📁</span>
+                            <span className="upload-text">업로드</span>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="session-empty">
-                        <span className="upload-icon">📁</span>
-                        <span className="upload-text">업로드</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

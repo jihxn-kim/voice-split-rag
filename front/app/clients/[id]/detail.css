@@ -337,6 +337,18 @@
   flex-direction: column;
 }
 
+.session-box.uploading {
+  border-style: dashed;
+  border-color: #f59e0b;
+  background: #fffbeb;
+  cursor: default;
+}
+
+.session-box.uploading:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .session-box.filled {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border-color: #3b82f6;
@@ -350,6 +362,11 @@
 .session-box.empty {
   background: #f9fafb;
   border-style: dashed;
+}
+
+.session-box.failed {
+  background: #fef2f2;
+  border-color: #ef4444;
 }
 
 .session-box.empty:hover {
@@ -396,6 +413,67 @@
   justify-content: center;
   gap: 0.5rem;
   color: #9ca3af;
+}
+
+.session-uploading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #b45309;
+  text-align: center;
+}
+
+.uploading-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(245, 158, 11, 0.3);
+  border-top-color: #f59e0b;
+  animation: spin 1s linear infinite;
+}
+
+.uploading-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.uploading-subtext {
+  font-size: 0.8rem;
+  color: #92400e;
+}
+
+.session-failed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #b91c1c;
+  text-align: center;
+}
+
+.failed-icon {
+  font-size: 1.6rem;
+}
+
+.failed-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.failed-subtext {
+  font-size: 0.8rem;
+  color: #991b1b;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .upload-icon {

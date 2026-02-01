@@ -8,6 +8,7 @@ from typing import List
 from database import get_db
 from models.client import Client
 from models.voice_record import VoiceRecord
+from models.voice_upload import VoiceUpload
 from schemas.client import ClientCreate, ClientUpdate, ClientResponse, ClientListResponse, ClientListItem
 from auth.dependencies import get_current_active_user
 from models.user import User
@@ -191,6 +192,12 @@ def get_client_voice_records(
                    .offset(skip)\
                    .limit(limit)\
                    .all()
+
+    uploads = db.query(VoiceUpload).filter(
+        VoiceUpload.client_id == client_id,
+        VoiceUpload.user_id == current_user.id,
+        VoiceUpload.status.in_(["queued", "processing", "failed"]),
+    ).order_by(VoiceUpload.created_at.desc()).all()
     
     return {
         "total": total,
@@ -205,5 +212,16 @@ def get_client_voice_records(
                 "updated_at": record.updated_at.isoformat() if record.updated_at else None,
             }
             for record in records
-        ]
+        ],
+        "uploads": [
+            {
+                "id": upload.id,
+                "session_number": upload.session_number,
+                "status": upload.status,
+                "error_message": upload.error_message,
+                "created_at": upload.created_at.isoformat(),
+                "updated_at": upload.updated_at.isoformat() if upload.updated_at else None,
+            }
+            for upload in uploads
+        ],
     }

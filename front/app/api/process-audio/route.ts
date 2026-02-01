@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { status: response.status });
 
   } catch (error: any) {
     console.error('API Route error:', error);

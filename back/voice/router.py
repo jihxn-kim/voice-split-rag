@@ -5,15 +5,16 @@
 #####################################################
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name, get_openai_client
+from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.voice_upload import VoiceUpload
 from models.client import Client
-from schemas.voice_record import VoiceRecordCreate, VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate
-from database import get_db
+from database import get_db, SessionLocal
 from logs.logging_util import LoggerSingleton
 import logging
 from config.exception import BadRequest, InternalError, AppException
@@ -24,7 +25,8 @@ import tempfile
 import os
 import uuid
 import json
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime
 
 # 로거 설정
 logger = LoggerSingleton.get_logger(logger_name="voice", level=logging.INFO)
@@ -210,6 +212,219 @@ def build_speaker_label_map(speaker_ids: list[str], counselor_id: str) -> dict[s
     return label_map
 
 
+def run_stt_processing_background(
+    upload_id: int,
+    s3_key: str,
+    user_id: int,
+    client_id: int,
+    session_number: Optional[int],
+    language_code: str,
+):
+    """백그라운드에서 STT 및 기록 저장 처리"""
+    temp_file_path = None
+    db = SessionLocal()
+    upload = None
+    try:
+        upload = db.query(VoiceUpload).filter(
+            VoiceUpload.id == upload_id,
+            VoiceUpload.user_id == user_id,
+        ).first()
+        if not upload:
+            logger.warning(f"Upload not found for processing: upload_id={upload_id}, user_id={user_id}")
+            return
+        upload.status = "processing"
+        db.commit()
+
+        client = db.query(Client).filter(
+            Client.id == client_id,
+            Client.user_id == user_id,
+        ).first()
+        if not client:
+            logger.warning(f"Client not found or unauthorized: client_id={client_id}, user_id={user_id}")
+            upload.status = "failed"
+            upload.error_message = "Client not found or unauthorized"
+            db.commit()
+            return
+
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+
+        if not client_container.assemblyai_api_key:
+            logger.error("ASSEMBLYAI_API_KEY not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "ASSEMBLYAI_API_KEY not configured"
+            db.commit()
+            return
+
+        if not client_container.s3_client:
+            logger.error("S3 client not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "S3 client not configured"
+            db.commit()
+            return
+
+        try:
+            bucket_name = get_s3_bucket_name()
+        except Exception as e:
+            logger.error(f"S3 bucket name not configured: {str(e)}")
+            raise
+
+        suffix = os.path.splitext(s3_key)[1] or ".mp3"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_file_path = temp_file.name
+
+        logger.info(f"[bg] Downloading from S3: s3://{bucket_name}/{s3_key}")
+        client_container.s3_client.download_file(bucket_name, s3_key, temp_file_path)
+        logger.info(f"[bg] File downloaded to: {temp_file_path}")
+
+        transcriber = aai.Transcriber()
+        config = aai.TranscriptionConfig(
+            speaker_labels=True,
+            language_code=language_code or "ko",
+            punctuate=True,
+            format_text=True,
+            disfluencies=False,
+            filter_profanity=False,
+        )
+
+        logger.info("[bg] Starting transcription with AssemblyAI...")
+        transcript = transcriber.transcribe(temp_file_path, config)
+
+        if transcript.status == aai.TranscriptStatus.error:
+            logger.error(f"AssemblyAI transcription failed: {transcript.error}")
+            upload.status = "failed"
+            upload.error_message = f"AssemblyAI transcription failed: {transcript.error}"
+            db.commit()
+            return
+
+        logger.info(f"[bg] Transcription completed: {len(transcript.utterances)} utterances")
+
+        speakers = {}
+        segments = []
+
+        for utterance in transcript.utterances:
+            speaker_id = str(utterance.speaker)
+            text = utterance.text
+            start_time = utterance.start / 1000.0
+            end_time = utterance.end / 1000.0
+
+            segments.append({
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            })
+
+            if speaker_id not in speakers:
+                speakers[speaker_id] = {
+                    "speaker_id": speaker_id,
+                    "text": "",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": 0,
+                }
+
+            speakers[speaker_id]["text"] += " " + text
+            speakers[speaker_id]["end_time"] = max(speakers[speaker_id]["end_time"], end_time)
+            speakers[speaker_id]["duration"] = (
+                speakers[speaker_id]["end_time"] - speakers[speaker_id]["start_time"]
+            )
+
+        for speaker_id in speakers:
+            speakers[speaker_id]["text"] = speakers[speaker_id]["text"].strip()
+
+        full_transcript = transcript.text
+
+        speaker_ids = []
+        for seg in segments:
+            seg_speaker_id = str(seg.get("speaker_id"))
+            if seg_speaker_id not in speaker_ids:
+                speaker_ids.append(seg_speaker_id)
+
+        labels_applied = False
+        counselor_id = None
+        if client_container.openai_client:
+            counselor_id = asyncio.run(
+                identify_counselor_speaker_id(client_container.openai_client, segments)
+            )
+
+        if counselor_id:
+            label_map = build_speaker_label_map(speaker_ids, counselor_id)
+            for seg in segments:
+                seg_speaker_id = str(seg.get("speaker_id"))
+                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
+            for speaker in speakers.values():
+                spk_id = str(speaker.get("speaker_id"))
+                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
+            labels_applied = True
+            logger.info(f"[bg] Speaker labels applied: counselor={counselor_id}")
+
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+
+        dialogue_prefix = "" if labels_applied else "발화자 "
+        dialogue = "\n".join(
+            [f"{dialogue_prefix}{seg['speaker_id']}: {seg['text']}" for seg in segments]
+        )
+
+        total_duration = int(segments[-1]["end_time"]) if segments else 0
+
+        original_filename = os.path.basename(s3_key)
+
+        if session_number:
+            auto_title = f"{client.name} - {session_number}회기 상담"
+        else:
+            auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+        voice_record = VoiceRecord(
+            title=auto_title,
+            user_id=user_id,
+            client_id=client_id,
+            session_number=session_number,
+            s3_key=s3_key,
+            original_filename=original_filename,
+            total_speakers=len(speakers),
+            full_transcript=full_transcript,
+            speakers_data=sorted_speakers,
+            segments_data=segments,
+            dialogue=dialogue,
+            language_code=language_code or "ko",
+            duration=total_duration,
+        )
+
+        db.add(voice_record)
+        db.commit()
+        db.refresh(voice_record)
+
+        logger.info(f"[bg] Voice record saved: id={voice_record.id}, user_id={user_id}, client_id={client_id}")
+
+        if session_number == 1:
+            if client.ai_analysis_completed:
+                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+            else:
+                logger.info(f"[bg] First session detected for client_id={client_id}, running AI analysis")
+                asyncio.run(analyze_first_session(db, client, dialogue, full_transcript))
+
+        upload.status = "completed"
+        upload.voice_record_id = voice_record.id
+        upload.error_message = None
+        db.commit()
+    except Exception as e:
+        logger.exception(f"[bg] process-s3-file failed: {str(e)}")
+        if upload:
+            upload.status = "failed"
+            upload.error_message = str(e)
+            db.commit()
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"[bg] Temporary file deleted: {temp_file_path}")
+            except Exception:
+                logger.exception("[bg] Failed to delete temporary file")
+        db.close()
+
+
 # Pydantic 모델
 class PresignedUrlRequest(BaseModel):
     filename: str
@@ -221,6 +436,12 @@ class ProcessS3FileRequest(BaseModel):
     client_id: Optional[int] = None  # 내담자 ID (선택)
     session_number: Optional[int] = None  # 회기 번호 (선택)
     language_code: str = "ko"
+
+
+class ProcessS3FileResponse(BaseModel):
+    status: str
+    message: str
+    task_id: str
 
 @router.post("/generate-upload-url")
 async def generate_upload_url(
@@ -276,17 +497,16 @@ async def generate_upload_url(
         raise InternalError(f"Pre-signed URL 생성 실패: {str(e)}")
 
 
-@router.post("/process-s3-file", response_model=VoiceRecordResponse)
+@router.post("/process-s3-file", response_model=ProcessS3FileResponse)
 async def process_s3_file(
     request: ProcessS3FileRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     s3_client = Depends(get_s3_client),
-    bucket_name: str = Depends(get_s3_bucket_name),
     api_key: str | None = Depends(get_assemblyai_api_key),
-    openai_client: AsyncOpenAI | None = Depends(get_openai_client),
 ):
-    """S3에 업로드된 파일을 다운로드하여 화자 구분 처리 및 DB 저장
+    """S3에 업로드된 파일을 백그라운드에서 처리
     
     Args:
         request: S3 키, 내담자 ID, 언어 코드
@@ -294,12 +514,13 @@ async def process_s3_file(
         db: 데이터베이스 세션
     
     Returns:
-        화자 구분 결과 및 저장된 기록
+        처리 요청 결과 (비동기)
     """
-    temp_file_path = None
-    
     try:
         logger.info(f"/voice/process-s3-file called: s3_key={request.s3_key}, client_id={request.client_id}, user_id={current_user.id}")
+
+        if not request.client_id:
+            raise BadRequest("client_id is required")
         
         # 내담자가 현재 사용자의 것인지 확인
         client = db.query(Client).filter(
@@ -316,179 +537,42 @@ async def process_s3_file(
         if not s3_client:
             raise InternalError("S3 클라이언트가 초기화되지 않았습니다.")
         
-        # S3에서 파일 다운로드
-        suffix = os.path.splitext(request.s3_key)[1] or ".mp3"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            temp_file_path = temp_file.name
-        
-        logger.info(f"Downloading from S3: s3://{bucket_name}/{request.s3_key}")
-        s3_client.download_file(bucket_name, request.s3_key, temp_file_path)
-        logger.info(f"File downloaded to: {temp_file_path}")
-        
-        # AssemblyAI 트랜스크라이버 설정
-        transcriber = aai.Transcriber()
-        
-        # 트랜스크립션 설정
-        config = aai.TranscriptionConfig(
-            speaker_labels=True,  # 화자 구분 활성화
-            language_code=request.language_code,  # 언어 설정
-            punctuate=True,  # 자동 구두점 (기본값: True)
-            format_text=True,  # 텍스트 포맷팅 (숫자, 날짜 등)
-            disfluencies=False,  # 필러 단어 제거 ("음", "어" 등) - False면 유지
-            filter_profanity=False,  # 욕설 필터링 - 상담 분석용이므로 False
-        )
-        
-        logger.info("Starting transcription with AssemblyAI...")
-        
-        # 트랜스크립션 실행 (동기 방식)
-        transcript = transcriber.transcribe(temp_file_path, config)
-        
-        if transcript.status == aai.TranscriptStatus.error:
-            raise InternalError(f"AssemblyAI transcription failed: {transcript.error}")
-        
-        logger.info(f"Transcription completed: {len(transcript.utterances)} utterances")
-        
-        # 화자별 데이터 수집
-        speakers = {}
-        segments = []
-        
-        for utterance in transcript.utterances:
-            speaker_id = str(utterance.speaker)
-            text = utterance.text
-            start_time = utterance.start / 1000.0  # 밀리초 -> 초
-            end_time = utterance.end / 1000.0
-            
-            # 세그먼트 추가 (시간순 대화)
-            segments.append({
-                "speaker_id": speaker_id,
-                "text": text,
-                "start_time": start_time,
-                "end_time": end_time,
-                "duration": end_time - start_time,
-            })
-            
-            # 화자별 데이터 수집
-            if speaker_id not in speakers:
-                speakers[speaker_id] = {
-                    "speaker_id": speaker_id,
-                    "text": "",
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "duration": 0,
-                }
-            
-            speakers[speaker_id]["text"] += " " + text
-            speakers[speaker_id]["end_time"] = max(speakers[speaker_id]["end_time"], end_time)
-            speakers[speaker_id]["duration"] = speakers[speaker_id]["end_time"] - speakers[speaker_id]["start_time"]
-        
-        # 화자 텍스트 정리 (앞뒤 공백 제거)
-        for speaker_id in speakers:
-            speakers[speaker_id]["text"] = speakers[speaker_id]["text"].strip()
-        
-        # 상담사 화자 식별 및 라벨링 (LLM 기반)
-        speaker_ids = []
-        for seg in segments:
-            speaker_id = str(seg.get("speaker_id"))
-            if speaker_id not in speaker_ids:
-                speaker_ids.append(speaker_id)
-
-        labels_applied = False
-        counselor_id = await identify_counselor_speaker_id(openai_client, segments)
-        if counselor_id:
-            label_map = build_speaker_label_map(speaker_ids, counselor_id)
-            for seg in segments:
-                seg_speaker_id = str(seg.get("speaker_id"))
-                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
-            for speaker in speakers.values():
-                spk_id = str(speaker.get("speaker_id"))
-                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
-            labels_applied = True
-            logger.info(f"Speaker labels applied: counselor={counselor_id}")
-
-        # 화자별로 정렬 (시작 시간 기준)
-        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
-        
-        # 전체 대화 텍스트
-        full_transcript = transcript.text
-        
-        # 시간순 대화 문자열 생성
-        if labels_applied:
-            dialogue = "\n".join([f"{seg['speaker_id']}: {seg['text']}" for seg in segments])
-        else:
-            dialogue = "\n".join([f"발화자 {seg['speaker_id']}: {seg['text']}" for seg in segments])
-        
-        logger.info(f"Speaker diarization completed: {len(speakers)} speakers detected")
-        
-        # 총 길이 계산 (초)
-        total_duration = int(segments[-1]["end_time"]) if segments else 0
-        
-        # 내담자 정보 가져오기 (선택사항)
-        client = None
-        if request.client_id:
-            client = db.query(Client).filter(Client.id == request.client_id).first()
-            if not client:
-                raise BadRequest("내담자를 찾을 수 없습니다.")
-        
-        # 원본 파일명 추출
-        original_filename = os.path.basename(request.s3_key)
-        
-        # 자동 제목 생성
-        if client:
-            if request.session_number:
-                auto_title = f"{client.name} - {request.session_number}회기 상담"
-            else:
-                auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
-        else:
-            auto_title = f"상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
-        
-        # DB에 저장
-        voice_record = VoiceRecord(
-            title=auto_title,
+        upload = VoiceUpload(
             user_id=current_user.id,
             client_id=request.client_id,
             session_number=request.session_number,
             s3_key=request.s3_key,
-            original_filename=original_filename,
-            total_speakers=len(speakers),
-            full_transcript=full_transcript,
-            speakers_data=sorted_speakers,
-            segments_data=segments,
-            dialogue=dialogue,
-            language_code=request.language_code,
-            duration=total_duration,
+            status="queued",
+        )
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        task_id = str(upload.id)
+        background_tasks.add_task(
+            run_stt_processing_background,
+            upload.id,
+            request.s3_key,
+            current_user.id,
+            request.client_id,
+            request.session_number,
+            request.language_code or "ko",
         )
         
-        db.add(voice_record)
-        db.commit()
-        db.refresh(voice_record)
-        
-        logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}, client_id={request.client_id}")
-        
-        # 1회기 상담 업로드 시에만 AI 분석 수행 (내담자가 지정된 경우만)
-        if client and request.client_id and request.session_number == 1:
-            if client.ai_analysis_completed:
-                logger.info(f"AI analysis already completed for client_id={request.client_id}, skipping")
-            else:
-                logger.info(f"First session upload detected for client_id={request.client_id}, scheduling AI analysis")
-                # 여기서는 동기적으로 처리 (간단한 방법)
-                # 프로덕션에서는 Celery 등의 백그라운드 작업 큐 사용 권장
-                await analyze_first_session(db, client, dialogue, full_transcript)
-        
-        return voice_record
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "message": "STT processing started",
+                "task_id": task_id,
+            },
+        )
         
     except AppException:
         raise
     except Exception as e:
         logger.exception("process-s3-file failed")
-        raise InternalError(f"화자 구분 처리 실패: {str(e)}")
-    finally:
-        # 임시 파일 삭제
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-                logger.info(f"Temporary file deleted: {temp_file_path}")
-            except Exception:
-                logger.exception("Failed to delete temporary file")
+        raise InternalError(f"STT 처리 요청 실패: {str(e)}")
 
 
 @router.post("/speaker-diarization-v2")

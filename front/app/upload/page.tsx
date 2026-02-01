@@ -173,10 +173,11 @@ export default function Upload() {
       const data = await processRes.json();
       setDiarizationResult(data);
       
-      // 성공하면 기록 페이지로 이동
+      const isQueued = data?.status === 'queued';
+      // 처리 접수 시 바로 다른 행동 가능하도록 이동
       setTimeout(() => {
         router.push('/history');
-      }, 2000);
+      }, isQueued ? 800 : 2000);
     } catch (err: any) {
       setErrorMsg(err?.message || "화자 구분 처리 중 오류가 발생했습니다.");
     } finally {
@@ -289,10 +290,20 @@ export default function Upload() {
                   </div>
                 ) : diarizationResult ? (
                   <div className="success">
-                    <div className="success-icon">✅</div>
-                    <h2>업로드 완료!</h2>
-                    <p>화자 구분이 성공적으로 완료되었습니다.</p>
-                    <p className="redirect-text">잠시 후 기록 페이지로 이동합니다...</p>
+                    <div className="success-icon">
+                      {diarizationResult?.status === 'queued' ? '⏳' : '✅'}
+                    </div>
+                    <h2>
+                      {diarizationResult?.status === 'queued'
+                        ? '업로드 접수 완료!'
+                        : '업로드 완료!'}
+                    </h2>
+                    <p>
+                      {diarizationResult?.status === 'queued'
+                        ? '백그라운드에서 처리 중입니다. 완료되면 기록에 표시됩니다.'
+                        : '화자 구분이 성공적으로 완료되었습니다.'}
+                    </p>
+                    <p className="redirect-text">기록 페이지로 이동합니다...</p>
                   </div>
                 ) : (
                   <>
