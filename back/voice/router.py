@@ -7,6 +7,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional
 from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
 from auth.dependencies import get_current_active_user
@@ -33,9 +34,146 @@ logger = LoggerSingleton.get_logger(logger_name="voice", level=logging.INFO)
 
 router = APIRouter(prefix="/voice")
 
+EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_DIMENSIONS = 1536
+CHUNK_MAX_CHARS = 1200
+CHUNK_OVERLAP_LINES = 2
+RAG_TOP_K = 4
 
-async def analyze_first_session(db: Session, client: Client, dialogue: str, full_transcript: str):
-    """1회기 상담 내용을 바탕으로 AI 분석 수행"""
+
+def build_semantic_chunks(segments: list[dict]) -> list[str]:
+    """발화 세그먼트를 문맥 단위로 묶어 청킹"""
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for seg in segments:
+        speaker = str(seg.get("speaker_id", "")).strip()
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        line = f"{speaker}: {text}" if speaker else text
+        line_len = len(line)
+
+        if current and current_len + line_len + 1 > CHUNK_MAX_CHARS:
+            chunks.append("\n".join(current))
+            if CHUNK_OVERLAP_LINES > 0:
+                current = current[-CHUNK_OVERLAP_LINES:]
+                current_len = sum(len(item) for item in current) + max(0, len(current) - 1)
+            else:
+                current = []
+                current_len = 0
+
+        current.append(line)
+        current_len += line_len + (1 if current_len > 0 else 0)
+
+    if current:
+        chunks.append("\n".join(current))
+
+    return chunks
+
+
+def vector_to_pg(embedding: list[float]) -> str:
+    return "[" + ",".join(f"{value:.6f}" for value in embedding) + "]"
+
+
+def ensure_vector_tables(db: Session):
+    db.execute(text(
+        f"""
+        CREATE TABLE IF NOT EXISTS voice_record_chunks (
+            id SERIAL PRIMARY KEY,
+            voice_record_id INTEGER NOT NULL REFERENCES voice_records(id) ON DELETE CASCADE,
+            client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+            session_number INTEGER,
+            chunk_index INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            embedding vector({EMBEDDING_DIMENSIONS}) NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    ))
+    db.execute(text(
+        """
+        CREATE INDEX IF NOT EXISTS voice_record_chunks_record_idx
+        ON voice_record_chunks (voice_record_id);
+        """
+    ))
+    db.execute(text(
+        """
+        CREATE INDEX IF NOT EXISTS voice_record_chunks_embedding_idx
+        ON voice_record_chunks USING ivfflat (embedding vector_cosine_ops);
+        """
+    ))
+    db.commit()
+
+
+async def embed_texts(openai_client: AsyncOpenAI, texts: list[str]) -> list[list[float]]:
+    embeddings: list[list[float]] = []
+    batch_size = 32
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start:start + batch_size]
+        response = await openai_client.embeddings.create(
+            model=EMBEDDING_MODEL,
+            input=batch,
+        )
+        embeddings.extend([item.embedding for item in response.data])
+    return embeddings
+
+
+async def build_rag_context(
+    db: Session,
+    openai_client: AsyncOpenAI,
+    voice_record_id: int,
+) -> list[str]:
+    query_texts = [
+        "상담신청 배경을 파악할 수 있는 발화",
+        "내담자의 주호소문제와 핵심 어려움이 드러난 발화",
+        "내담자의 현재 증상이나 상태를 설명한 발화",
+    ]
+
+    response = await openai_client.embeddings.create(
+        model=EMBEDDING_MODEL,
+        input=query_texts,
+    )
+
+    contexts: list[str] = []
+    seen: set[str] = set()
+
+    for item in response.data:
+        query_embedding = vector_to_pg(item.embedding)
+        rows = db.execute(
+            text(
+                """
+                SELECT content
+                FROM voice_record_chunks
+                WHERE voice_record_id = :record_id
+                ORDER BY embedding <=> :embedding::vector
+                LIMIT :limit
+                """
+            ),
+            {
+                "record_id": voice_record_id,
+                "embedding": query_embedding,
+                "limit": RAG_TOP_K,
+            },
+        ).fetchall()
+
+        for row in rows:
+            content = row[0]
+            if content and content not in seen:
+                contexts.append(content)
+                seen.add(content)
+
+    return contexts
+
+
+async def analyze_first_session(
+    db: Session,
+    client: Client,
+    voice_record_id: int,
+    fallback_dialogue: str,
+):
+    """1회기 상담 내용을 바탕으로 AI 분석 수행 (RAG 사용)"""
     try:
         from config.clients import initialize_clients
         client_container = initialize_clients()
@@ -46,7 +184,13 @@ async def analyze_first_session(db: Session, client: Client, dialogue: str, full
         
         # 상담 경력 텍스트 변환
         counseling_history = "있음" if client.has_previous_counseling else "없음"
-        
+
+        rag_chunks = await build_rag_context(db, client_container.openai_client, voice_record_id)
+        if rag_chunks:
+            context_block = "\n\n".join([f"[{idx + 1}] {chunk}" for idx, chunk in enumerate(rag_chunks)])
+        else:
+            context_block = fallback_dialogue or ""
+
         prompt = f"""
 당신은 전문 심리 상담사입니다. 1회기 상담 내용을 바탕으로 내담자를 재평가해주세요.
 
@@ -59,8 +203,8 @@ async def analyze_first_session(db: Session, client: Client, dialogue: str, full
 - 상담이전경력: {counseling_history}
 - 초기 증상(본인호소): {client.current_symptoms}
 
-## 1회기 상담 내용
-{dialogue}
+## 1회기 상담 근거 발화
+{context_block}
 
 ## 요청사항
 1회기 실제 상담 내용을 바탕으로 다음 3가지를 **전문적이고 상세하게** 재평가해주세요:
@@ -70,6 +214,7 @@ async def analyze_first_session(db: Session, client: Client, dialogue: str, full
 3. **현재 증상**: 1회기 상담에서 관찰되고 파악된 증상들을 구체적으로 기술
 
 각 항목은 최소 3-4문장 이상으로 전문적이면서도 이해하기 쉽게 작성해주세요.
+텍스트에 근거가 없으면 "확인 불가"라고 명시해주세요.
 **중요**: 모든 값은 반드시 문자열(string) 형식으로 작성해주세요.
 
 JSON 형식으로 응답:
@@ -398,12 +543,42 @@ def run_stt_processing_background(
 
         logger.info(f"[bg] Voice record saved: id={voice_record.id}, user_id={user_id}, client_id={client_id}")
 
-        if session_number == 1:
-            if client.ai_analysis_completed:
-                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
-            else:
-                logger.info(f"[bg] First session detected for client_id={client_id}, running AI analysis")
-                asyncio.run(analyze_first_session(db, client, dialogue, full_transcript))
+        if session_number == 1 and client_container.openai_client:
+            try:
+                if client.ai_analysis_completed:
+                    logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+                else:
+                    chunks = build_semantic_chunks(segments)
+                    if chunks:
+                        ensure_vector_tables(db)
+                        embeddings = asyncio.run(embed_texts(client_container.openai_client, chunks))
+                        for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                            db.execute(
+                                text(
+                                    """
+                                    INSERT INTO voice_record_chunks
+                                    (voice_record_id, client_id, session_number, chunk_index, content, embedding)
+                                    VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, :embedding::vector)
+                                    """
+                                ),
+                                {
+                                    "voice_record_id": voice_record.id,
+                                    "client_id": client_id,
+                                    "session_number": session_number,
+                                    "chunk_index": idx,
+                                    "content": chunk,
+                                    "embedding": vector_to_pg(embedding),
+                                },
+                            )
+                        db.commit()
+                        logger.info(f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}")
+                    else:
+                        logger.warning(f"[bg] No chunks generated for voice_record_id={voice_record.id}")
+
+                    logger.info(f"[bg] First session detected for client_id={client_id}, running AI analysis")
+                    asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
+            except Exception as e:
+                logger.warning(f"[bg] RAG/AI analysis skipped due to error: {str(e)}")
 
         upload.status = "completed"
         upload.voice_record_id = voice_record.id
