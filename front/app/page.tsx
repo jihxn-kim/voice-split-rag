@@ -185,7 +185,7 @@ export default function Home() {
             <p className="headline">
               파일을 여기로 드래그하거나 클릭하여 선택하세요
             </p>
-            <p className="sub">지원: mp3, wav, m4a 등 오디오 형식</p>
+            <p className="sub">지원 형식: MP3, WAV, M4A, FLAC, OGG, AAC 등 모든 오디오 파일</p>
             <button
               type="button"
               className="btn"
