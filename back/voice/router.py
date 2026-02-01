@@ -151,6 +151,10 @@ async def process_s3_file(
         config = aai.TranscriptionConfig(
             speaker_labels=True,  # 화자 구분 활성화
             language_code=request.language_code,  # 언어 설정
+            punctuate=True,  # 자동 구두점 (기본값: True)
+            format_text=True,  # 텍스트 포맷팅 (숫자, 날짜 등)
+            disfluencies=False,  # 필러 단어 제거 ("음", "어" 등) - False면 유지
+            filter_profanity=False,  # 욕설 필터링 - 상담 분석용이므로 False
         )
         
         logger.info("Starting transcription with AssemblyAI...")
@@ -295,6 +299,10 @@ async def speaker_diarization_v2(
         config = aai.TranscriptionConfig(
             speaker_labels=True,  # 화자 구분 활성화
             language_code=language_code,  # 언어 설정
+            punctuate=True,  # 자동 구두점 (기본값: True)
+            format_text=True,  # 텍스트 포맷팅 (숫자, 날짜 등)
+            disfluencies=False,  # 필러 단어 제거 ("음", "어" 등) - False면 유지
+            filter_profanity=False,  # 욕설 필터링 - 상담 분석용이므로 False
         )
         
         logger.info("Starting transcription with AssemblyAI...")
