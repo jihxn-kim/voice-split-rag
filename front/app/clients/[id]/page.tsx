@@ -313,7 +313,7 @@ export default function ClientDetailPage() {
                 <div className="no-sessions-message">
                   <p>📊 회기를 추가하면 회기별 상담 기록을 관리할 수 있습니다.</p>
                   <p className="sub-text">
-                    상단의 "회기 추가" 버튼을 눌러 전체 회기 수를 설정해주세요.
+                    상단의 &quot;회기 추가&quot; 버튼을 눌러 전체 회기 수를 설정해주세요.
                   </p>
                   <button
                     onClick={() => router.push(`/clients/${clientId}/upload`)}
