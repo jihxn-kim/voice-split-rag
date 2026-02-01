@@ -22,16 +22,35 @@
   flex: 1;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.history-btn,
 .logout-btn {
   padding: 0.5rem 1rem;
-  background: #ef4444;
-  color: white;
   border: none;
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.history-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.history-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.logout-btn {
+  background: #ef4444;
+  color: white;
 }
 
 .logout-btn:hover {

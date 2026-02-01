@@ -1,0 +1,286 @@
+.detail-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.back-btn,
+.upload-btn,
+.edit-btn,
+.save-btn,
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.back-btn {
+  background: white;
+  color: #667eea;
+}
+
+.back-btn:hover {
+  background: #f7fafc;
+  transform: translateY(-2px);
+}
+
+.upload-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.detail-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.title-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #eee;
+}
+
+.title-display {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.detail-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+  flex: 1;
+}
+
+.edit-btn {
+  background: #f7fafc;
+  color: #667eea;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.edit-btn:hover {
+  background: #edf2f7;
+}
+
+.title-edit {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.title-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  outline: none;
+}
+
+.save-btn {
+  background: #48bb78;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #38a169;
+}
+
+.cancel-btn {
+  background: #f56565;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #e53e3e;
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.meta-item {
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.meta-item strong {
+  color: #667eea;
+  margin-right: 0.5rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #eee;
+}
+
+.transcript-box {
+  background: #f7fafc;
+  padding: 1.5rem;
+  border-radius: 8px;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+.speakers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.speaker-card {
+  background: #f7fafc;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.speaker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.speaker-header h3 {
+  margin: 0;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.speaker-time {
+  font-size: 0.85rem;
+  color: #666;
+  background: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+}
+
+.speaker-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #333;
+}
+
+.segments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.segment-item {
+  background: #f7fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.segment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.segment-speaker {
+  font-weight: 600;
+  color: #667eea;
+  font-size: 0.9rem;
+}
+
+.segment-time {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.segment-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #333;
+}
+
+.loading,
+.error-message {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.error-message {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .detail-container {
+    padding: 1rem;
+  }
+
+  .detail-card {
+    padding: 1rem;
+  }
+
+  .detail-title {
+    font-size: 1.5rem;
+  }
+
+  .title-edit {
+    flex-direction: column;
+  }
+
+  .metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .speaker-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .segment-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}

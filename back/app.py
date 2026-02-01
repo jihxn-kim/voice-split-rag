@@ -104,7 +104,9 @@ app.add_middleware(
 Instrumentator().instrument(app).expose(app)
 
 # 라우터 등록
-routers = [auth_router, voice_router]
+from voice.history_router import router as history_router
+
+routers = [auth_router, voice_router, history_router]
 
 for router in routers:
     app.include_router(router)

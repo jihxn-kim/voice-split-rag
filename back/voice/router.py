@@ -5,9 +5,13 @@
 #####################################################
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Body, Header
+from sqlalchemy.orm import Session
 from config.dependencies import get_openai_client, get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
 from auth.dependencies import get_current_active_user
 from models.user import User
+from models.voice_record import VoiceRecord
+from schemas.voice_record import VoiceRecordCreate, VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate
+from database import get_db
 from logs.logging_util import LoggerSingleton
 import logging
 from openai import AsyncOpenAI
@@ -107,22 +111,24 @@ async def speech_to_text(
     return {"message": response.choices[0].message.content}
 
 
-@router.post("/process-s3-file")
+@router.post("/process-s3-file", response_model=VoiceRecordResponse)
 async def process_s3_file(
     request: ProcessS3FileRequest,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
     s3_client = Depends(get_s3_client),
     bucket_name: str = Depends(get_s3_bucket_name),
     api_key: str | None = Depends(get_assemblyai_api_key),
 ):
-    """S3에 업로드된 파일을 다운로드하여 화자 구분 처리
+    """S3에 업로드된 파일을 다운로드하여 화자 구분 처리 및 DB 저장
     
     Args:
         request: S3 키와 언어 코드
         current_user: 현재 로그인한 사용자 (JWT 인증 필수)
+        db: 데이터베이스 세션
     
     Returns:
-        화자 구분 결과
+        화자 구분 결과 및 저장된 기록
     """
     temp_file_path = None
     
@@ -215,20 +221,44 @@ async def process_s3_file(
         
         logger.info(f"Speaker diarization completed: {len(speakers)} speakers detected")
         
-        # S3에서 파일 삭제 (선택사항)
-        try:
-            s3_client.delete_object(Bucket=bucket_name, Key=request.s3_key)
-            logger.info(f"S3 file deleted: {request.s3_key}")
-        except Exception as e:
-            logger.warning(f"Failed to delete S3 file: {e}")
+        # 총 길이 계산 (초)
+        total_duration = int(segments[-1]["end_time"]) if segments else 0
         
-        return {
-            "total_speakers": len(speakers),
-            "full_transcript": full_transcript,
-            "speakers": sorted_speakers,
-            "segments": segments,
-            "dialogue": dialogue,
-        }
+        # 원본 파일명 추출
+        original_filename = os.path.basename(request.s3_key)
+        
+        # 자동 제목 생성 (날짜 + 시간)
+        auto_title = f"음성 기록 - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        
+        # DB에 저장
+        voice_record = VoiceRecord(
+            title=auto_title,
+            user_id=current_user.id,
+            s3_key=request.s3_key,
+            original_filename=original_filename,
+            total_speakers=len(speakers),
+            full_transcript=full_transcript,
+            speakers_data=sorted_speakers,
+            segments_data=segments,
+            dialogue=dialogue,
+            language_code=request.language_code,
+            duration=total_duration,
+        )
+        
+        db.add(voice_record)
+        db.commit()
+        db.refresh(voice_record)
+        
+        logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}")
+        
+        # S3에서 파일 삭제 (선택사항 - 이제는 기록을 보관하므로 삭제하지 않음)
+        # try:
+        #     s3_client.delete_object(Bucket=bucket_name, Key=request.s3_key)
+        #     logger.info(f"S3 file deleted: {request.s3_key}")
+        # except Exception as e:
+        #     logger.warning(f"Failed to delete S3 file: {e}")
+        
+        return voice_record
         
     except AppException:
         raise

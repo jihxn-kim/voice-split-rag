@@ -243,9 +243,14 @@ export default function Home() {
     <div className="upload-container">
       <div className="header">
         <h1 className="title">음성 업로드</h1>
-        <button onClick={handleLogout} className="logout-btn">
-          로그아웃
-        </button>
+        <div className="header-buttons">
+          <button onClick={() => router.push('/history')} className="history-btn">
+            기록 보기
+          </button>
+          <button onClick={handleLogout} className="logout-btn">
+            로그아웃
+          </button>
+        </div>
       </div>
 
       <div
