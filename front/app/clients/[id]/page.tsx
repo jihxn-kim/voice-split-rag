@@ -195,6 +195,10 @@ export default function ClientDetailPage() {
                 ✏️ 정보 수정
               </button>
             </div>
+
+            <div className="info-footer">
+              <span className="info-date">등록일: {formatDate(client.created_at)}</span>
+            </div>
           </div>
 
           {/* AI 분석 결과 섹션 - 1회기 기반 */}
@@ -226,11 +230,6 @@ export default function ClientDetailPage() {
               </div>
             </div>
           )}
-
-            <div className="info-footer">
-              <span className="info-date">등록일: {formatDate(client.created_at)}</span>
-            </div>
-          </div>
 
           <div className="voice-records-section">
             <div className="section-header">
