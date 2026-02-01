@@ -19,26 +19,11 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shouldAutoDiarize, setShouldAutoDiarize] = useState(false);
 
-  // 인증 체크
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/login');
-    } else {
-      setIsAuthenticated(true);
-    }
-  }, [router]);
-
   // 로그아웃 함수
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     router.push('/login');
   };
-
-  // 인증되지 않았으면 렌더링하지 않음
-  if (!isAuthenticated) {
-    return null;
-  }
 
   const pickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -214,6 +199,16 @@ export default function Home() {
     };
   }, [selectedFile]);
 
+  // 인증 체크
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [router]);
+
   // 파일 선택 후 자동 화자 구분 한 번 실행
   useEffect(() => {
     if (shouldAutoDiarize && selectedFile && !isDiarizing) {
@@ -227,6 +222,22 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoDiarize, selectedFile, isDiarizing]);
+
+  // 인증되지 않았으면 로딩 표시
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        fontSize: '1.2rem',
+        color: '#6b7280'
+      }}>
+        로그인 확인 중...
+      </div>
+    );
+  }
 
   return (
     <div className="upload-container">
