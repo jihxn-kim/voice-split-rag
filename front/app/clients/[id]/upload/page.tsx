@@ -260,7 +260,7 @@ export default function ClientUploadPage() {
 
   if (!isAuthenticated || !client) {
     return (
-      <div className="main-layout">
+      <div className="main-layout upload-page">
         <Sidebar />
         <div className="main-content">
           <div className="loading-screen">
@@ -273,7 +273,7 @@ export default function ClientUploadPage() {
   }
 
   return (
-    <div className="main-layout">
+    <div className="main-layout upload-page">
       <Sidebar />
       <div className="main-content">
         <div className="upload-container">
