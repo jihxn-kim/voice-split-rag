@@ -385,7 +385,8 @@ export default function ClientDetailPage() {
                     const uploadStatus = box.upload?.status;
                     const isUploading = uploadStatus === 'queued' || uploadStatus === 'processing';
                     const isFailed = uploadStatus === 'failed';
-                    const hasRecord = Boolean(box.record);
+                    const record = box.record;
+                    const hasRecord = Boolean(record);
                     const showFailed = isFailed && !hasRecord && !isUploading;
                     const boxState = isUploading
                       ? 'uploading'
@@ -417,11 +418,11 @@ export default function ClientDetailPage() {
                               {box.sessionNumber === 1 ? ' · AI 분석 포함' : ''}
                             </div>
                           </div>
-                        ) : hasRecord ? (
+                        ) : record ? (
                           <div className="session-info">
-                            <div className="session-title">{box.record.title}</div>
+                            <div className="session-title">{record.title}</div>
                             <div className="session-date">
-                              {formatDate(box.record.created_at)}
+                              {formatDate(record.created_at)}
                             </div>
                           </div>
                         ) : showFailed ? (
