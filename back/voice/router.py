@@ -78,33 +78,38 @@ def vector_to_pg(embedding: list[float]) -> str:
 
 
 def ensure_vector_tables(db: Session):
-    db.execute(text(
-        f"""
-        CREATE TABLE IF NOT EXISTS voice_record_chunks (
-            id SERIAL PRIMARY KEY,
-            voice_record_id INTEGER NOT NULL REFERENCES voice_records(id) ON DELETE CASCADE,
-            client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-            session_number INTEGER,
-            chunk_index INTEGER NOT NULL,
-            content TEXT NOT NULL,
-            embedding vector({EMBEDDING_DIMENSIONS}) NOT NULL,
-            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-        );
-        """
-    ))
-    db.execute(text(
-        """
-        CREATE INDEX IF NOT EXISTS voice_record_chunks_record_idx
-        ON voice_record_chunks (voice_record_id);
-        """
-    ))
-    db.execute(text(
-        """
-        CREATE INDEX IF NOT EXISTS voice_record_chunks_embedding_idx
-        ON voice_record_chunks USING ivfflat (embedding vector_cosine_ops);
-        """
-    ))
-    db.commit()
+    try:
+        db.execute(text(
+            f"""
+            CREATE TABLE IF NOT EXISTS voice_record_chunks (
+                id SERIAL PRIMARY KEY,
+                voice_record_id INTEGER NOT NULL REFERENCES voice_records(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                session_number INTEGER,
+                chunk_index INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                embedding vector({EMBEDDING_DIMENSIONS}) NOT NULL,
+                created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+            );
+            """
+        ))
+        db.execute(text(
+            """
+            CREATE INDEX IF NOT EXISTS voice_record_chunks_record_idx
+            ON voice_record_chunks (voice_record_id);
+            """
+        ))
+        db.execute(text(
+            """
+            CREATE INDEX IF NOT EXISTS voice_record_chunks_embedding_idx
+            ON voice_record_chunks USING ivfflat (embedding vector_cosine_ops);
+            """
+        ))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Failed to ensure vector tables: {str(e)}")
+        raise
 
 
 async def embed_texts(openai_client: AsyncOpenAI, texts: list[str]) -> list[list[float]]:
@@ -185,7 +190,12 @@ async def analyze_first_session(
         # 상담 경력 텍스트 변환
         counseling_history = "있음" if client.has_previous_counseling else "없음"
 
-        rag_chunks = await build_rag_context(db, client_container.openai_client, voice_record_id)
+        try:
+            rag_chunks = await build_rag_context(db, client_container.openai_client, voice_record_id)
+        except Exception as e:
+            logger.warning(f"RAG context build failed, fallback to dialogue: {str(e)}")
+            rag_chunks = []
+
         if rag_chunks:
             context_block = "\n\n".join([f"[{idx + 1}] {chunk}" for idx, chunk in enumerate(rag_chunks)])
         else:
@@ -544,10 +554,10 @@ def run_stt_processing_background(
         logger.info(f"[bg] Voice record saved: id={voice_record.id}, user_id={user_id}, client_id={client_id}")
 
         if session_number == 1 and client_container.openai_client:
-            try:
-                if client.ai_analysis_completed:
-                    logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
-                else:
+            if client.ai_analysis_completed:
+                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+            else:
+                try:
                     chunks = build_semantic_chunks(segments)
                     if chunks:
                         ensure_vector_tables(db)
@@ -574,11 +584,15 @@ def run_stt_processing_background(
                         logger.info(f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}")
                     else:
                         logger.warning(f"[bg] No chunks generated for voice_record_id={voice_record.id}")
+                except Exception as e:
+                    logger.warning(f"[bg] RAG chunking skipped due to error: {str(e)}")
+                    db.rollback()
 
+                try:
                     logger.info(f"[bg] First session detected for client_id={client_id}, running AI analysis")
                     asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
-            except Exception as e:
-                logger.warning(f"[bg] RAG/AI analysis skipped due to error: {str(e)}")
+                except Exception as e:
+                    logger.warning(f"[bg] AI analysis failed: {str(e)}")
 
         upload.status = "completed"
         upload.voice_record_id = voice_record.id
