@@ -104,7 +104,7 @@ export default function Home() {
     setErrorMsg("");
     
     try {
-      // JWT 토큰 가져오기
+      // JWT 토큰 가져오기 (필수)
       const token = localStorage.getItem('access_token');
       if (!token) {
         throw new Error("로그인이 필요합니다.");
@@ -199,7 +199,7 @@ export default function Home() {
     };
   }, [selectedFile]);
 
-  // 인증 체크
+  // 인증 체크 (필수)
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) {

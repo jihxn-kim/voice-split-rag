@@ -46,7 +46,7 @@ async def generate_upload_url(
     
     Args:
         request: 파일명과 Content-Type
-        current_user: 현재 로그인한 사용자 (JWT 인증)
+        current_user: 현재 로그인한 사용자 (JWT 인증 필수)
     
     Returns:
         upload_url: S3 업로드 URL
@@ -119,7 +119,7 @@ async def process_s3_file(
     
     Args:
         request: S3 키와 언어 코드
-        current_user: 현재 로그인한 사용자 (JWT 인증)
+        current_user: 현재 로그인한 사용자 (JWT 인증 필수)
     
     Returns:
         화자 구분 결과

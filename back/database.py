@@ -11,10 +11,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 데이터베이스 URL
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://user:password@localhost:5432/voice_split_rag"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is not set!\n"
+        "Please add PostgreSQL on Railway:\n"
+        "  1. Railway Dashboard → New → Database → Add PostgreSQL\n"
+        "  2. Set JWT_SECRET_KEY environment variable\n"
+        "  3. Redeploy"
+    )
 
 # Railway PostgreSQL은 postgres://로 시작하는데, SQLAlchemy는 postgresql://을 사용
 if DATABASE_URL.startswith("postgres://"):

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Authorization 헤더에서 JWT 토큰 추출
+    // Authorization 헤더에서 JWT 토큰 추출 (필수)
     const authorization = req.headers.get('authorization');
     if (!authorization) {
       return NextResponse.json(
