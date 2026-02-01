@@ -93,7 +93,8 @@ export default function ClientDetailPage() {
 
       if (recordsRes.ok) {
         const recordsData = await recordsRes.json();
-        setVoiceRecords(recordsData.records || []);
+        console.log('Voice records fetched:', recordsData); // 디버깅용
+        setVoiceRecords(recordsData.records || recordsData || []);
       }
     } catch (err: any) {
       setError(err.message || '오류가 발생했습니다.');
@@ -161,7 +162,13 @@ export default function ClientDetailPage() {
     
     for (let i = 1; i <= totalSessions; i++) {
       // session_number로 해당 회기의 기록 찾기
-      const record = voiceRecords.find((r: any) => r.session_number === i);
+      const record = voiceRecords.find((r: any) => {
+        // session_number가 숫자일 수도 있고 문자열일 수도 있으므로 비교
+        const sessionNum = typeof r.session_number === 'string' 
+          ? parseInt(r.session_number, 10) 
+          : r.session_number;
+        return sessionNum === i;
+      });
       boxes.push({
         sessionNumber: i,
         record: record || null,

@@ -198,6 +198,7 @@ def get_client_voice_records(
             {
                 "id": record.id,
                 "title": record.title,
+                "session_number": record.session_number,
                 "total_speakers": record.total_speakers,
                 "duration": record.duration,
                 "created_at": record.created_at.isoformat(),
