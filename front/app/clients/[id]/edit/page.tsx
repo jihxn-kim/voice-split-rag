@@ -46,6 +46,9 @@ export default function ClientEditPage() {
   const [showAiComplaint, setShowAiComplaint] = useState(false);
   const [showAiSymptoms, setShowAiSymptoms] = useState(false);
 
+  // 토스트 알림 상태
+  const [showToast, setShowToast] = useState(false);
+
   useEffect(() => {
     const fetchClient = async () => {
       const token = localStorage.getItem('access_token');
@@ -258,7 +261,17 @@ export default function ClientEditPage() {
               </div>
               {showAiBackground && client.ai_consultation_background && (
                 <div className="ai-analysis-box">
-                  <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                  <div className="ai-box-header">
+                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <button
+                      type="button"
+                      className="btn-copy"
+                      onClick={() => copyToClipboard(client.ai_consultation_background!)}
+                      title="클립보드에 복사"
+                    >
+                      📋 복사
+                    </button>
+                  </div>
                   <p>{client.ai_consultation_background}</p>
                 </div>
               )}
@@ -287,7 +300,17 @@ export default function ClientEditPage() {
               </div>
               {showAiComplaint && client.ai_main_complaint && (
                 <div className="ai-analysis-box">
-                  <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                  <div className="ai-box-header">
+                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <button
+                      type="button"
+                      className="btn-copy"
+                      onClick={() => copyToClipboard(client.ai_main_complaint!)}
+                      title="클립보드에 복사"
+                    >
+                      📋 복사
+                    </button>
+                  </div>
                   <p>{client.ai_main_complaint}</p>
                 </div>
               )}
@@ -316,7 +339,17 @@ export default function ClientEditPage() {
               </div>
               {showAiSymptoms && client.ai_current_symptoms && (
                 <div className="ai-analysis-box">
-                  <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                  <div className="ai-box-header">
+                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <button
+                      type="button"
+                      className="btn-copy"
+                      onClick={() => copyToClipboard(client.ai_current_symptoms!)}
+                      title="클립보드에 복사"
+                    >
+                      📋 복사
+                    </button>
+                  </div>
                   <p>{client.ai_current_symptoms}</p>
                 </div>
               )}

@@ -129,10 +129,34 @@
   margin-bottom: 0.75rem;
 }
 
-.ai-analysis-box strong {
+.ai-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.ai-box-header strong {
   display: block;
   color: #1e40af;
-  margin-bottom: 0.5rem;
+  margin: 0;
+}
+
+.btn-copy {
+  background: white;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-copy:hover {
+  background: #3b82f6;
+  color: white;
 }
 
 .ai-analysis-box p {
@@ -140,6 +164,42 @@
   line-height: 1.6;
   margin: 0;
   white-space: pre-wrap;
+}
+
+/* 토스트 알림 */
+.toast-notification {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  background: #10b981;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  font-size: 0.95rem;
+  z-index: 9999;
+  animation: slideInDown 0.3s ease-out, fadeOut 0.3s ease-out 2.7s;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .form-actions {
