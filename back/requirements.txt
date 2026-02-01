@@ -2,7 +2,7 @@ uvicorn==0.36.0
 fastapi==0.117.1
 prometheus_fastapi_instrumentator==7.1.0
 langsmith==0.4.20
-dotenv==0.9.9
+python-dotenv==1.0.0
 openai==1.102.0
 google-cloud-speech==2.26.0
 pydub==0.25.1
@@ -10,5 +10,4 @@ audioop-lts==0.2.2
 google-cloud-storage==3.4.0
 python-multipart==0.0.20
 
-# 시스템 바이너리
-conda install -c conda-forge ffmpeg
+# ffmpeg는 Railway가 자동으로 설치합니다 (nixpacks.toml 참조)

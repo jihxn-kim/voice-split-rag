@@ -18,6 +18,9 @@ import logging
 
 load_dotenv()
 
+# 로거 설정
+logger = LoggerSingleton.get_logger(logger_name="app", level=logging.INFO)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(
@@ -65,17 +68,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 register_exception_handlers(app)
 
-vsr_url = os.getenv("VSR_URL")
+vsr_url = os.getenv("VSR_URL", "http://localhost:3000")
+
+# CORS 설정 - 프론트엔드 URL 허용
+allowed_origins = [
+    "http://localhost:3000",  # Next.js 로컬
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite 로컬 (개발용)
+    "http://127.0.0.1:5173",
+]
+
+# 환경 변수로 설정된 프론트엔드 URL 추가
+if vsr_url:
+    allowed_origins.extend([
+        vsr_url,
+        f"https://{vsr_url}" if not vsr_url.startswith("http") else vsr_url,
+    ])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        f"{vsr_url}:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        f"{vsr_url}",
-        f"https://{vsr_url}",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,6 +103,3 @@ for router in routers:
     app.include_router(router)
 
 # 라우터에 client_container 전달은 app.state를 통해 처리합니다.
-
-# 로거 설정
-logger = LoggerSingleton.get_logger(logger_name="app", level=logging.INFO)
