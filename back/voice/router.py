@@ -122,7 +122,7 @@ class PresignedUrlRequest(BaseModel):
 
 class ProcessS3FileRequest(BaseModel):
     s3_key: str
-    client_id: int  # 내담자 ID (필수)
+    client_id: Optional[int] = None  # 내담자 ID (선택)
     language_code: str = "ko"
 
 @router.post("/generate-upload-url")
@@ -301,11 +301,21 @@ async def process_s3_file(
         # 총 길이 계산 (초)
         total_duration = int(segments[-1]["end_time"]) if segments else 0
         
+        # 내담자 정보 가져오기 (선택사항)
+        client = None
+        if request.client_id:
+            client = db.query(Client).filter(Client.id == request.client_id).first()
+            if not client:
+                raise BadRequest("내담자를 찾을 수 없습니다.")
+        
         # 원본 파일명 추출
         original_filename = os.path.basename(request.s3_key)
         
-        # 자동 제목 생성 (내담자 이름 + 날짜)
-        auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        # 자동 제목 생성
+        if client:
+            auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        else:
+            auto_title = f"상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         
         # DB에 저장
         voice_record = VoiceRecord(
@@ -327,17 +337,18 @@ async def process_s3_file(
         db.commit()
         db.refresh(voice_record)
         
-        logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}")
+        logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}, client_id={request.client_id}")
         
-        # 1회기 확인: 해당 내담자의 첫 번째 음성 기록인지 확인
-        total_records = db.query(VoiceRecord).filter(VoiceRecord.client_id == request.client_id).count()
-        
-        if total_records == 1:
-            # 1회기이면 백그라운드에서 AI 분석 수행
-            logger.info(f"First session detected for client_id={request.client_id}, scheduling AI analysis")
-            # 여기서는 동기적으로 처리 (간단한 방법)
-            # 프로덕션에서는 Celery 등의 백그라운드 작업 큐 사용 권장
-            await analyze_first_session(db, client, dialogue, full_transcript)
+        # 1회기 확인 및 AI 분석 (내담자가 지정된 경우만)
+        if client and request.client_id:
+            total_records = db.query(VoiceRecord).filter(VoiceRecord.client_id == request.client_id).count()
+            
+            if total_records == 1:
+                # 1회기이면 백그라운드에서 AI 분석 수행
+                logger.info(f"First session detected for client_id={request.client_id}, scheduling AI analysis")
+                # 여기서는 동기적으로 처리 (간단한 방법)
+                # 프로덕션에서는 Celery 등의 백그라운드 작업 큐 사용 권장
+                await analyze_first_session(db, client, dialogue, full_transcript)
         
         return voice_record
         
