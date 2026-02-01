@@ -3,12 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const backendUrl = process.env.BACKEND_URL;
-    const frontendApiKey = process.env.FRONTEND_API_KEY;
 
-    if (!backendUrl || !frontendApiKey) {
+    if (!backendUrl) {
       return NextResponse.json(
-        { message: 'Server configuration error: Missing backend URL or API key' },
+        { message: 'Server configuration error: Missing backend URL' },
         { status: 500 }
+      );
+    }
+
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authorization = req.headers.get('authorization');
+    if (!authorization) {
+      return NextResponse.json(
+        { message: 'Unauthorized: No token provided' },
+        { status: 401 }
       );
     }
 
@@ -22,12 +30,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Railway 백엔드에 Pre-signed URL 요청
+    // Railway 백엔드에 Pre-signed URL 요청 (JWT 토큰 전달)
     const response = await fetch(`${backendUrl}/voice/generate-upload-url`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': frontendApiKey,
+        'Authorization': authorization,
       },
       body: JSON.stringify({
         filename,

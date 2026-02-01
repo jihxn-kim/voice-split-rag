@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import "./page.css";
 
 export default function Home() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -15,6 +18,27 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shouldAutoDiarize, setShouldAutoDiarize] = useState(false);
+
+  // 인증 체크
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [router]);
+
+  // 로그아웃 함수
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    router.push('/login');
+  };
+
+  // 인증되지 않았으면 렌더링하지 않음
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const pickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -95,11 +119,18 @@ export default function Home() {
     setErrorMsg("");
     
     try {
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error("로그인이 필요합니다.");
+      }
+
       // 1단계: Pre-signed URL 요청
       const uploadUrlRes = await fetch("/api/upload-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           filename: selectedFile.name,
@@ -109,6 +140,11 @@ export default function Home() {
 
       if (!uploadUrlRes.ok) {
         const errJson = await uploadUrlRes.json();
+        // 401이면 로그아웃
+        if (uploadUrlRes.status === 401) {
+          localStorage.removeItem('access_token');
+          router.push('/login');
+        }
         throw new Error(errJson.message || "업로드 URL 생성 실패");
       }
 
@@ -132,6 +168,7 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           s3_key,
@@ -193,7 +230,12 @@ export default function Home() {
 
   return (
     <div className="upload-container">
-      <h1 className="title">음성 업로드</h1>
+      <div className="header">
+        <h1 className="title">음성 업로드</h1>
+        <button onClick={handleLogout} className="logout-btn">
+          로그아웃
+        </button>
+      </div>
 
       <div
         className={`dropzone${isDragging ? " dragging" : ""}`}

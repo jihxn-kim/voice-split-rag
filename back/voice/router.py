@@ -6,6 +6,8 @@
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Body, Header
 from config.dependencies import get_openai_client, get_assemblyai_api_key, get_s3_client, get_s3_bucket_name
+from auth.dependencies import get_current_active_user
+from models.user import User
 from logs.logging_util import LoggerSingleton
 import logging
 from openai import AsyncOpenAI
@@ -36,7 +38,7 @@ class ProcessS3FileRequest(BaseModel):
 @router.post("/generate-upload-url")
 async def generate_upload_url(
     request: PresignedUrlRequest,
-    x_api_key: str = Header(..., alias="X-API-Key"),
+    current_user: User = Depends(get_current_active_user),
     s3_client = Depends(get_s3_client),
     bucket_name: str = Depends(get_s3_bucket_name),
 ):
@@ -44,23 +46,14 @@ async def generate_upload_url(
     
     Args:
         request: 파일명과 Content-Type
-        x_api_key: 프론트엔드 인증 키
+        current_user: 현재 로그인한 사용자 (JWT 인증)
     
     Returns:
         upload_url: S3 업로드 URL
         s3_key: S3 객체 키 (나중에 처리 요청할 때 사용)
     """
     try:
-        logger.info(f"/voice/generate-upload-url called: filename={request.filename}")
-        
-        # API 키 검증
-        expected_key = os.getenv("FRONTEND_API_KEY")
-        if not expected_key:
-            raise InternalError("FRONTEND_API_KEY가 설정되지 않았습니다.")
-        
-        if x_api_key != expected_key:
-            logger.warning(f"Unauthorized access attempt with key: {x_api_key[:10]}...")
-            raise BadRequest("Invalid API Key", code="UNAUTHORIZED")
+        logger.info(f"/voice/generate-upload-url called: filename={request.filename}, user_id={current_user.id}")
         
         if not s3_client:
             raise InternalError("S3 클라이언트가 초기화되지 않았습니다.")
@@ -117,7 +110,7 @@ async def speech_to_text(
 @router.post("/process-s3-file")
 async def process_s3_file(
     request: ProcessS3FileRequest,
-    x_api_key: str = Header(..., alias="X-API-Key"),
+    current_user: User = Depends(get_current_active_user),
     s3_client = Depends(get_s3_client),
     bucket_name: str = Depends(get_s3_bucket_name),
     api_key: str | None = Depends(get_assemblyai_api_key),
@@ -126,7 +119,7 @@ async def process_s3_file(
     
     Args:
         request: S3 키와 언어 코드
-        x_api_key: 프론트엔드 인증 키
+        current_user: 현재 로그인한 사용자 (JWT 인증)
     
     Returns:
         화자 구분 결과
@@ -134,16 +127,7 @@ async def process_s3_file(
     temp_file_path = None
     
     try:
-        logger.info(f"/voice/process-s3-file called: s3_key={request.s3_key}")
-        
-        # API 키 검증
-        expected_key = os.getenv("FRONTEND_API_KEY")
-        if not expected_key:
-            raise InternalError("FRONTEND_API_KEY가 설정되지 않았습니다.")
-        
-        if x_api_key != expected_key:
-            logger.warning(f"Unauthorized access attempt with key: {x_api_key[:10]}...")
-            raise BadRequest("Invalid API Key", code="UNAUTHORIZED")
+        logger.info(f"/voice/process-s3-file called: s3_key={request.s3_key}, user_id={current_user.id}")
         
         if not api_key:
             raise BadRequest("ASSEMBLYAI_API_KEY 환경 변수가 설정되지 않았습니다.")

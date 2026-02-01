@@ -11,7 +11,9 @@ from logs.logging_util import LoggerSingleton
 from contextlib import asynccontextmanager
 from config.clients import initialize_clients
 from voice.router import router as voice_router
+from auth.router import router as auth_router
 from config.exception import register_exception_handlers
+from database import Base, engine
 from dotenv import load_dotenv
 import os
 import logging
@@ -23,6 +25,11 @@ logger = LoggerSingleton.get_logger(logger_name="app", level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 데이터베이스 테이블 생성
+    logger.info("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
+    
     logger.info(
         r"""                                                                          
  ##  ##    ####    ######    ####     #####             #####   ######    ####    #####    ######  
@@ -97,7 +104,7 @@ app.add_middleware(
 Instrumentator().instrument(app).expose(app)
 
 # 라우터 등록
-routers = [voice_router]
+routers = [auth_router, voice_router]
 
 for router in routers:
     app.include_router(router)
