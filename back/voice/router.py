@@ -345,13 +345,12 @@ async def process_s3_file(
         
         logger.info(f"Voice record saved: id={voice_record.id}, user_id={current_user.id}, client_id={request.client_id}")
         
-        # 1회기 확인 및 AI 분석 (내담자가 지정된 경우만)
-        if client and request.client_id:
-            total_records = db.query(VoiceRecord).filter(VoiceRecord.client_id == request.client_id).count()
-            
-            if total_records == 1:
-                # 1회기이면 백그라운드에서 AI 분석 수행
-                logger.info(f"First session detected for client_id={request.client_id}, scheduling AI analysis")
+        # 1회기 상담 업로드 시에만 AI 분석 수행 (내담자가 지정된 경우만)
+        if client and request.client_id and request.session_number == 1:
+            if client.ai_analysis_completed:
+                logger.info(f"AI analysis already completed for client_id={request.client_id}, skipping")
+            else:
+                logger.info(f"First session upload detected for client_id={request.client_id}, scheduling AI analysis")
                 # 여기서는 동기적으로 처리 (간단한 방법)
                 # 프로덕션에서는 Celery 등의 백그라운드 작업 큐 사용 권장
                 await analyze_first_session(db, client, dialogue, full_transcript)
