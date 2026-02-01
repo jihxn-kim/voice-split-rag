@@ -12,6 +12,7 @@ class ClientBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="내담자 이름")
     age: int = Field(..., ge=1, le=150, description="내담자 나이")
     gender: str = Field(..., description="성별 (남성, 여성, 기타)")
+    total_sessions: int = Field(default=8, ge=1, le=100, description="전체 회기 수")
     consultation_background: str = Field(..., min_length=1, description="상담신청배경")
     main_complaint: str = Field(..., min_length=1, description="주호소문제")
     has_previous_counseling: bool = Field(..., description="상담이전경력 유무")
@@ -28,6 +29,7 @@ class ClientUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     age: Optional[int] = Field(None, ge=1, le=150)
     gender: Optional[str] = None
+    total_sessions: Optional[int] = Field(None, ge=1, le=100)
     consultation_background: Optional[str] = Field(None, min_length=1)
     main_complaint: Optional[str] = Field(None, min_length=1)
     has_previous_counseling: Optional[bool] = None

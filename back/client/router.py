@@ -34,6 +34,7 @@ def create_client(
         name=client_data.name,
         age=client_data.age,
         gender=client_data.gender,
+        total_sessions=client_data.total_sessions,
         consultation_background=client_data.consultation_background,
         main_complaint=client_data.main_complaint,
         has_previous_counseling=client_data.has_previous_counseling,

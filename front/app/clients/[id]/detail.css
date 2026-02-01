@@ -67,6 +67,11 @@
   border-bottom: 2px solid #e5e7eb;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .client-name {
   font-size: 2rem;
   font-weight: bold;
@@ -87,6 +92,24 @@
   padding: 0.4rem 1rem;
   border-radius: 8px;
   font-weight: 500;
+}
+
+.session-btn {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #667eea;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: #667eea;
+}
+
+.session-btn:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-2px);
 }
 
 .upload-voice-btn {
@@ -218,6 +241,223 @@
   line-height: 1.8;
   margin: 0;
   white-space: pre-wrap;
+}
+
+/* 상담 기록 요약 버튼 */
+.records-summary {
+  margin-top: 2rem;
+}
+
+.records-summary-btn {
+  width: 100%;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.records-summary-btn:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.records-summary-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.toggle-icon {
+  font-size: 1.25rem;
+  color: #6b7280;
+}
+
+/* 회기 박스 컨테이너 */
+.session-boxes-container {
+  margin-top: 1.5rem;
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.session-boxes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.session-box {
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-box.filled {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-color: #3b82f6;
+}
+
+.session-box.filled:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.session-box.empty {
+  background: #f9fafb;
+  border-style: dashed;
+}
+
+.session-box.empty:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.session-number {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+}
+
+.session-box.filled .session-number {
+  color: #1e40af;
+}
+
+.session-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.4;
+}
+
+.session-date {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: auto;
+}
+
+.session-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #9ca3af;
+}
+
+.upload-icon {
+  font-size: 2rem;
+}
+
+.upload-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.modal-desc {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0 0 1.5rem 0;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modal-btn-cancel,
+.modal-btn-confirm {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-btn-cancel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+}
+
+.modal-btn-cancel:hover {
+  background: #f9fafb;
+}
+
+.modal-btn-confirm {
+  background: #667eea;
+  border: none;
+  color: white;
+}
+
+.modal-btn-confirm:hover {
+  background: #5568d3;
 }
 
 .voice-records-section {

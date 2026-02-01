@@ -10,6 +10,7 @@ interface ClientDetail {
   name: string;
   age: number;
   gender: string;
+  total_sessions: number;
   consultation_background: string;
   main_complaint: string;
   has_previous_counseling: boolean;
@@ -40,6 +41,9 @@ export default function ClientDetailPage() {
   const [voiceRecords, setVoiceRecords] = useState<VoiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [newSessionCount, setNewSessionCount] = useState('');
+  const [showRecordsView, setShowRecordsView] = useState(false);
 
   useEffect(() => {
     if (clientId) {
@@ -162,12 +166,20 @@ export default function ClientDetailPage() {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => router.push(`/clients/${clientId}/upload`)}
-                className="upload-voice-btn"
-              >
-                🎙️ 음성 업로드
-              </button>
+              <div className="header-buttons">
+                <button
+                  onClick={() => setShowSessionModal(true)}
+                  className="session-btn"
+                >
+                  📊 회기 추가
+                </button>
+                <button
+                  onClick={() => router.push(`/clients/${clientId}/upload`)}
+                  className="upload-voice-btn"
+                >
+                  🎙️ 음성 업로드
+                </button>
+              </div>
             </div>
 
             <div className="info-grid">
@@ -231,50 +243,86 @@ export default function ClientDetailPage() {
             </div>
           )}
 
-          <div className="voice-records-section">
-            <div className="section-header">
-              <h2 className="section-title">상담 기록 ({voiceRecords.length})</h2>
-              {voiceRecords.length > 0 && (
-                <button
-                  onClick={() => router.push(`/clients/${clientId}/upload`)}
-                  className="add-record-btn"
-                >
-                  + 상담 기록 추가
-                </button>
-              )}
-            </div>
+          <div className="records-summary">
+            <button
+              onClick={() => setShowRecordsView(!showRecordsView)}
+              className="records-summary-btn"
+            >
+              <span className="records-summary-text">
+                📋 상담 기록 ({voiceRecords.length}/{client.total_sessions})
+              </span>
+              <span className="toggle-icon">{showRecordsView ? '▲' : '▼'}</span>
+            </button>
+          </div>
 
-            {voiceRecords.length === 0 ? (
-              <div className="empty-records">
-                <p>아직 상담 기록이 없습니다.</p>
-                <button
-                  onClick={() => router.push(`/clients/${clientId}/upload`)}
-                  className="upload-voice-btn"
-                >
-                  첫 상담 기록 업로드하기
-                </button>
-              </div>
-            ) : (
-              <div className="records-list">
-                {voiceRecords.map((record) => (
+          {showRecordsView && (
+            <div className="session-boxes-container">
+              <div className="session-boxes-grid">
+                {getSessionBoxes().map((box) => (
                   <div
-                    key={record.id}
-                    className="record-item"
-                    onClick={() => router.push(`/history/${record.id}`)}
+                    key={box.sessionNumber}
+                    className={`session-box ${box.record ? 'filled' : 'empty'}`}
+                    onClick={() => {
+                      if (box.record) {
+                        router.push(`/history/${box.record.id}`);
+                      } else {
+                        router.push(`/clients/${clientId}/upload`);
+                      }
+                    }}
                   >
-                    <div className="record-info">
-                      <h3 className="record-title">{record.title}</h3>
-                      <div className="record-meta">
-                        <span className="meta-item">👥 {record.total_speakers}명</span>
-                        <span className="meta-item">⏱️ {formatTime(record.duration)}</span>
+                    <div className="session-number">{box.sessionNumber}회기</div>
+                    {box.record ? (
+                      <div className="session-info">
+                        <div className="session-title">{box.record.title}</div>
+                        <div className="session-date">
+                          {formatDate(box.record.created_at)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="record-date">{formatDate(record.created_at)}</div>
+                    ) : (
+                      <div className="session-empty">
+                        <span className="upload-icon">📁</span>
+                        <span className="upload-text">업로드</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* 회기 추가 모달 */}
+          {showSessionModal && (
+            <div className="modal-overlay" onClick={() => setShowSessionModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h2 className="modal-title">회기 수 변경</h2>
+                <p className="modal-desc">전체 상담 회기 수를 입력해주세요 (1-100)</p>
+                <input
+                  type="number"
+                  value={newSessionCount}
+                  onChange={(e) => setNewSessionCount(e.target.value)}
+                  placeholder={`현재: ${client.total_sessions}회기`}
+                  min="1"
+                  max="100"
+                  className="modal-input"
+                  autoFocus
+                />
+                <div className="modal-actions">
+                  <button
+                    onClick={() => {
+                      setShowSessionModal(false);
+                      setNewSessionCount('');
+                    }}
+                    className="modal-btn-cancel"
+                  >
+                    취소
+                  </button>
+                  <button onClick={updateSessionCount} className="modal-btn-confirm">
+                    변경
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
