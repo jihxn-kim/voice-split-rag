@@ -140,12 +140,61 @@ async def update_voice_record(
         if not record:
             raise BadRequest("기록을 찾을 수 없습니다.", code="RECORD_NOT_FOUND")
         
-        # 제목 수정
-        record.title = update_data.title
+        payload = update_data.model_dump(exclude_unset=True)
+
+        if "title" in payload and payload["title"]:
+            record.title = payload["title"]
+
+        speaker_renames = payload.get("speaker_renames") if payload else None
+        if speaker_renames:
+            renames = {
+                str(key): str(value).strip()
+                for key, value in speaker_renames.items()
+                if value and str(value).strip()
+            }
+
+            if renames:
+                segments = record.segments_data or []
+                updated_segments = []
+                for segment in segments:
+                    next_segment = dict(segment)
+                    speaker_id = str(next_segment.get("speaker_id", ""))
+                    if speaker_id in renames:
+                        next_segment["speaker_id"] = renames[speaker_id]
+                    updated_segments.append(next_segment)
+
+                speakers = record.speakers_data or []
+                updated_speakers = []
+                for speaker in speakers:
+                    next_speaker = dict(speaker)
+                    speaker_id = next_speaker.get("speaker_id", next_speaker.get("speaker", ""))
+                    speaker_id = str(speaker_id)
+                    if speaker_id in renames:
+                        new_label = renames[speaker_id]
+                        if "speaker_id" in next_speaker:
+                            next_speaker["speaker_id"] = new_label
+                        if "speaker" in next_speaker:
+                            next_speaker["speaker"] = new_label
+                    updated_speakers.append(next_speaker)
+
+                record.segments_data = updated_segments
+                record.speakers_data = updated_speakers
+                record.dialogue = "\n".join(
+                    [
+                        f"{seg.get('speaker_id', '')}: {seg.get('text', '')}"
+                        for seg in updated_segments
+                    ]
+                )
+
         record.updated_at = datetime.utcnow()
         
         db.commit()
         db.refresh(record)
+        
+        goal = db.query(VoiceRecordGoal).filter(
+            VoiceRecordGoal.voice_record_id == record.id
+        ).first()
+        record.next_session_goal = goal.next_session_goal if goal else None
         
         logger.info(f"Record updated: id={record.id}, title={record.title}")
         

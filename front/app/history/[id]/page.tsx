@@ -46,6 +46,8 @@ export default function RecordDetailPage() {
   const [error, setError] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [speakerEdits, setSpeakerEdits] = useState<Record<string, string>>({});
+  const [isSavingSpeakers, setIsSavingSpeakers] = useState(false);
 
   useEffect(() => {
     if (recordId) {
@@ -135,27 +137,50 @@ export default function RecordDetailPage() {
   const formatSpeakerLabel = (speakerId: string) => {
     const trimmed = (speakerId || "").toString().trim();
     if (!trimmed) return "발화자";
-    if (trimmed.includes("상담사") || trimmed.includes("내담자")) {
+    if (
+      trimmed.includes("상담사") ||
+      trimmed.includes("내담자") ||
+      trimmed.includes("발화자")
+    ) {
       return trimmed;
     }
-    return `발화자 ${trimmed}`;
+    if (/^[A-Za-z0-9]+$/.test(trimmed) && trimmed.length <= 2) {
+      return `발화자 ${trimmed}`;
+    }
+    return trimmed;
   };
 
+  useEffect(() => {
+    if (!record?.segments_data?.length) return;
+    const seen = new Set<string>();
+    const nextEdits: Record<string, string> = {};
+    record.segments_data.forEach((segment) => {
+      const speakerId = (segment.speaker_id || "").toString().trim();
+      if (!speakerId || seen.has(speakerId)) return;
+      seen.add(speakerId);
+      nextEdits[speakerId] = formatSpeakerLabel(speakerId);
+    });
+    setSpeakerEdits(nextEdits);
+  }, [record]);
+
   const normalizeSpeakerLabel = (label: string) => {
-    const trimmed = (label || "").toString().trim();
+    const trimmed = (label || "").toString().trim().replace(/\s+/g, " ");
     if (!trimmed) return "발화자";
     if (trimmed.startsWith("상담사")) {
-      return "상담사";
+      const suffix = trimmed.slice("상담사".length).trim();
+      if (!suffix) return "상담사";
+      if (/^[A-Za-z]$/.test(suffix) || /^\d+$/.test(suffix)) return "상담사";
+      return `상담사 ${suffix}`;
     }
     if (trimmed.startsWith("내담자")) {
-      const suffix = trimmed.replace("내담자", "").replace(/\s+/g, "");
-      return suffix ? `내담자${suffix}` : "내담자A";
+      const suffix = trimmed.slice("내담자".length).trim();
+      return suffix ? `내담자 ${suffix}` : "내담자";
     }
     if (trimmed.startsWith("발화자")) {
-      const suffix = trimmed.replace("발화자", "").replace(/\s+/g, "");
-      return suffix ? `발화자${suffix}` : "발화자";
+      const suffix = trimmed.slice("발화자".length).trim();
+      return suffix ? `발화자 ${suffix}` : "발화자";
     }
-    return trimmed.replace(/\s+/g, "");
+    return trimmed;
   };
 
   const buildDialogueCopyText = () => {
@@ -184,6 +209,66 @@ export default function RecordDetailPage() {
     } catch (err) {
       console.error("Failed to copy dialogue:", err);
       alert("복사에 실패했습니다.");
+    }
+  };
+
+  const getSpeakerIds = () => {
+    if (!record?.segments_data?.length) return [];
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    record.segments_data.forEach((segment) => {
+      const speakerId = (segment.speaker_id || "").toString().trim();
+      if (!speakerId || seen.has(speakerId)) return;
+      seen.add(speakerId);
+      ordered.push(speakerId);
+    });
+    return ordered;
+  };
+
+  const handleSaveSpeakers = async () => {
+    if (!record) return;
+    const speakerIds = getSpeakerIds();
+    const renames: Record<string, string> = {};
+
+    speakerIds.forEach((speakerId) => {
+      const nextName = (speakerEdits[speakerId] || "").trim();
+      const baseLabel = formatSpeakerLabel(speakerId);
+      if (nextName && nextName !== baseLabel) {
+        renames[speakerId] = nextName;
+      }
+    });
+
+    if (Object.keys(renames).length === 0) {
+      return;
+    }
+
+    try {
+      setIsSavingSpeakers(true);
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch(`/api/voice/records/${recordId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ speaker_renames: renames }),
+      });
+
+      if (!response.ok) {
+        throw new Error("화자 이름 저장에 실패했습니다.");
+      }
+
+      const updatedRecord = await response.json();
+      setRecord(updatedRecord);
+    } catch (err: any) {
+      alert(err.message || "화자 이름 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSavingSpeakers(false);
     }
   };
 
@@ -220,6 +305,13 @@ export default function RecordDetailPage() {
       </div>
     );
   }
+
+  const speakerIds = getSpeakerIds();
+  const hasSpeakerChanges = speakerIds.some((speakerId) => {
+    const nextName = (speakerEdits[speakerId] || "").trim();
+    const baseLabel = formatSpeakerLabel(speakerId);
+    return nextName && nextName !== baseLabel;
+  });
 
   return (
     <div className="main-layout">
@@ -277,6 +369,42 @@ export default function RecordDetailPage() {
                 <strong>생성일:</strong> {formatDate(record.created_at)}
               </div>
             </div>
+
+            {speakerIds.length > 0 ? (
+              <div className="speaker-list-card">
+                <div className="speaker-list-header">
+                  <h3 className="speaker-list-title">화자 목록</h3>
+                  <button
+                    type="button"
+                    className="speaker-save-btn"
+                    onClick={handleSaveSpeakers}
+                    disabled={!hasSpeakerChanges || isSavingSpeakers}
+                  >
+                    {isSavingSpeakers ? "저장 중..." : "이름 저장"}
+                  </button>
+                </div>
+                <div className="speaker-list">
+                  {speakerIds.map((speakerId) => (
+                    <div key={speakerId} className="speaker-item">
+                      <span className="speaker-tag">
+                        {formatSpeakerLabel(speakerId)}
+                      </span>
+                      <input
+                        className="speaker-input"
+                        value={speakerEdits[speakerId] ?? ""}
+                        onChange={(e) =>
+                          setSpeakerEdits((prev) => ({
+                            ...prev,
+                            [speakerId]: e.target.value,
+                          }))
+                        }
+                        placeholder="이름 입력"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {record.next_session_goal ? (
               <div className="next-goal-card">

@@ -3,7 +3,7 @@
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 
@@ -27,7 +27,8 @@ class VoiceRecordCreate(BaseModel):
 
 class VoiceRecordUpdate(BaseModel):
     """음성 기록 수정 (제목만)"""
-    title: str = Field(..., min_length=1, max_length=200)
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    speaker_renames: Optional[Dict[str, str]] = None
 
 
 class VoiceRecordResponse(BaseModel):
