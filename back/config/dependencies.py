@@ -25,6 +25,17 @@ def get_langsmith_client(request: Request) -> LangSmithClient:
 def get_assemblyai_api_key(request: Request) -> str | None:
     return request.app.state.client_container.assemblyai_api_key
 
+# Speechmatics API Key
+def get_speechmatics_api_key(request: Request) -> str | None:
+    return request.app.state.client_container.speechmatics_api_key
+
+# Speechmatics API URL
+def get_speechmatics_api_url(request: Request) -> str:
+    return (
+        request.app.state.client_container.speechmatics_api_url
+        or os.getenv("SPEECHMATICS_API_URL", "https://asr.api.speechmatics.com/v2")
+    )
+
 # AWS S3 Client
 def get_s3_client(request: Request):
     return request.app.state.client_container.s3_client

@@ -19,6 +19,8 @@ class ClientContainer:
         self.openai_client = None
         self.langsmith_client = None
         self.assemblyai_api_key = None
+        self.speechmatics_api_key = None
+        self.speechmatics_api_url = None
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -38,6 +40,15 @@ def initialize_clients() -> ClientContainer:
     if assemblyai_key:
         aai.settings.api_key = assemblyai_key
         container.assemblyai_api_key = assemblyai_key
+
+    # Speechmatics API 키 설정
+    speechmatics_key = os.getenv("SPEECHMATICS_API_KEY")
+    if speechmatics_key:
+        container.speechmatics_api_key = speechmatics_key
+        container.speechmatics_api_url = os.getenv(
+            "SPEECHMATICS_API_URL",
+            "https://asr.api.speechmatics.com/v2",
+        )
     
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
