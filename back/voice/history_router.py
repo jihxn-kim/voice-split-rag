@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.voice_record_goal import VoiceRecordGoal
 from schemas.voice_record import VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate
 from database import get_db
 from logs.logging_util import LoggerSingleton
@@ -92,6 +93,11 @@ async def get_voice_record(
         
         if not record:
             raise BadRequest("기록을 찾을 수 없습니다.", code="RECORD_NOT_FOUND")
+
+        goal = db.query(VoiceRecordGoal).filter(
+            VoiceRecordGoal.voice_record_id == record.id
+        ).first()
+        record.next_session_goal = goal.next_session_goal if goal else None
         
         logger.info(f"Record retrieved: id={record.id}")
         

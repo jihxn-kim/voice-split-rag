@@ -46,6 +46,7 @@ class VoiceRecordResponse(BaseModel):
     dialogue: str
     language_code: str
     duration: Optional[int]
+    next_session_goal: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

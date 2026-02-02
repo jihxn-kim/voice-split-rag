@@ -30,6 +30,7 @@ interface VoiceRecordDetail {
   dialogue: string;
   language_code: string;
   duration: number | null;
+  next_session_goal?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -276,6 +277,13 @@ export default function RecordDetailPage() {
                 <strong>생성일:</strong> {formatDate(record.created_at)}
               </div>
             </div>
+
+            {record.next_session_goal ? (
+              <div className="next-goal-card">
+                <h2 className="section-title">🎯 다음 회기 상담 목표</h2>
+                <p className="next-goal-text">{record.next_session_goal}</p>
+              </div>
+            ) : null}
 
             <div className="section">
               <div className="section-header">

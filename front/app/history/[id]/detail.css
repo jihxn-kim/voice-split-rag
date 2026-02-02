@@ -141,6 +141,23 @@
   font-weight: 600;
 }
 
+.next-goal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.next-goal-text {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
 .section {
   margin-bottom: 2rem;
 }

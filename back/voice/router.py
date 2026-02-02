@@ -13,6 +13,7 @@ from config.dependencies import get_assemblyai_api_key, get_s3_client, get_s3_bu
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.voice_record_goal import VoiceRecordGoal
 from models.voice_upload import VoiceUpload
 from models.client import Client
 from database import get_db, SessionLocal
@@ -271,6 +272,86 @@ JSON 형식으로 응답:
         logger.error(f"AI analysis failed for client_id={client.id}: {str(e)}")
         # 분석 실패해도 음성 기록 자체는 유지
 
+
+async def analyze_next_session_goal(
+    db: Session,
+    client: Client,
+    voice_record_id: int,
+    session_number: int | None,
+    fallback_dialogue: str,
+):
+    """2회기 이상 상담 내용을 바탕으로 다음 회기 목표 제시"""
+    try:
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+
+        if not client_container.openai_client:
+            logger.warning("OpenAI client not available, skipping next session goal analysis")
+            return
+
+        existing = db.query(VoiceRecordGoal).filter(
+            VoiceRecordGoal.voice_record_id == voice_record_id
+        ).first()
+        if existing:
+            logger.info(f"Next session goal already exists for voice_record_id={voice_record_id}")
+            return
+
+        context_block = fallback_dialogue or ""
+
+        prompt = f"""
+당신은 전문 심리 상담사입니다. 이번 회기 상담 내용을 바탕으로 다음 회기의 상담 목표를 제시해주세요.
+
+## 내담자 기본 정보
+- 이름: {client.name}
+- 나이: {client.age}세
+- 성별: {client.gender}
+- 현재 회기: {session_number or "미상"}회기
+
+## 이번 회기 상담 근거 발화
+{context_block}
+
+## 요청사항
+다음 회기에서 다룰 **상담 목표 3~5개**를 구체적으로 제시해주세요.
+각 항목은 1~2문장으로 간결하고 행동 지향적으로 작성해주세요.
+텍스트에 근거가 없으면 "확인 불가"라고 명시해주세요.
+**중요**: 결과는 반드시 문자열(string) 형태로 반환하세요.
+
+JSON 형식으로 응답:
+{{
+    "next_session_goal": "- 목표 1\\n- 목표 2\\n- 목표 3"
+}}
+"""
+
+        response = await client_container.openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "당신은 임상심리 전문가이자 전문 상담사입니다. 회기 내용을 바탕으로 다음 회기의 목표를 제시합니다.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.6,
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        goal_text = str(result.get("next_session_goal", "")).strip()
+        if not goal_text:
+            logger.warning(f"Next session goal empty for voice_record_id={voice_record_id}")
+            return
+
+        goal_record = VoiceRecordGoal(
+            voice_record_id=voice_record_id,
+            client_id=client.id,
+            session_number=session_number,
+            next_session_goal=goal_text,
+        )
+        db.add(goal_record)
+        db.commit()
+        logger.info(f"Next session goal saved for voice_record_id={voice_record_id}")
+    except Exception as e:
+        logger.error(f"Next session goal analysis failed for voice_record_id={voice_record_id}: {str(e)}")
 
 async def identify_counselor_speaker_id(
     openai_client: AsyncOpenAI | None,
@@ -601,6 +682,16 @@ def run_stt_processing_background(
                     asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
                 except Exception as e:
                     logger.warning(f"[bg] AI analysis failed: {str(e)}")
+        elif session_number and session_number > 1 and client_container.openai_client:
+            try:
+                logger.info(
+                    f"[bg] Session {session_number} detected for client_id={client_id}, generating next session goal"
+                )
+                asyncio.run(
+                    analyze_next_session_goal(db, client, voice_record.id, session_number, dialogue)
+                )
+            except Exception as e:
+                logger.warning(f"[bg] Next session goal analysis failed: {str(e)}")
 
         upload.status = "completed"
         upload.voice_record_id = voice_record.id
