@@ -21,11 +21,7 @@ export default function Sidebar() {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <img
-          className="sidebar-logo"
-          src="https://voice-split-rag.s3.us-east-1.amazonaws.com/logo/%E1%84%86%E1%85%A1%E1%84%8B%E1%85%B3%E1%86%B7%E1%84%8B%E1%85%B3%E1%86%AF%E1%84%83%E1%85%A1%E1%86%B7%E1%84%83%E1%85%A1.png"
-          alt="마음을담다"
-        />
+        <img className="sidebar-logo" src="/logo.png" alt="마음을담다" />
       </div>
 
       <nav className="sidebar-nav">
