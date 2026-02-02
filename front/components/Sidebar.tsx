@@ -21,7 +21,11 @@ export default function Sidebar() {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h2 className="sidebar-logo">🎙️ 마음토스</h2>
+        <img
+          className="sidebar-logo"
+          src="/마음을담다.png"
+          alt="마음을담다"
+        />
       </div>
 
       <nav className="sidebar-nav">

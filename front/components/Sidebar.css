@@ -13,13 +13,16 @@
 .sidebar-header {
   padding: 2rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
 }
 
 .sidebar-logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #667eea;
-  margin: 0;
+  height: 36px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .sidebar-nav {
@@ -106,7 +109,7 @@
   }
 
   .sidebar-logo {
-    font-size: 1.25rem;
+    height: 30px;
   }
 
   .sidebar-nav {
