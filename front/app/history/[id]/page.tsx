@@ -144,8 +144,7 @@ export default function RecordDetailPage() {
     const trimmed = (label || "").toString().trim();
     if (!trimmed) return "발화자";
     if (trimmed.startsWith("상담사")) {
-      const suffix = trimmed.replace("상담사", "").replace(/\s+/g, "");
-      return suffix ? `상담사${suffix}` : "상담사A";
+      return "상담사";
     }
     if (trimmed.startsWith("내담자")) {
       const suffix = trimmed.replace("내담자", "").replace(/\s+/g, "");
