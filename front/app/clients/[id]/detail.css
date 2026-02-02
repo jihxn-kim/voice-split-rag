@@ -676,6 +676,10 @@
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1.5rem;
@@ -691,8 +695,40 @@
     gap: 1rem;
   }
 
+  .header-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .session-btn,
   .upload-voice-btn {
     width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .edit-btn {
+    width: 100%;
+  }
+
+  .records-summary-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .records-summary-text {
+    font-size: 1.1rem;
+  }
+
+  .session-boxes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-meta {
+    flex-wrap: wrap;
   }
 
   .record-item {
@@ -703,5 +739,14 @@
 
   .record-date {
     align-self: flex-start;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-btn-cancel,
+  .modal-btn-confirm {
+    width: 100%;
   }
 }

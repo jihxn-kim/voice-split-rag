@@ -1,3 +1,16 @@
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
+.main-content {
+  margin-left: 250px;
+  flex: 1;
+  padding: 0;
+  overflow-y: auto;
+}
+
 .edit-container {
   max-width: 900px;
   margin: 0 auto;
@@ -285,6 +298,14 @@
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
   .edit-container {
     padding: 1rem;
   }
@@ -300,5 +321,12 @@
   .btn-cancel,
   .btn-submit {
     width: 100%;
+  }
+
+  .toast-notification {
+    left: 1rem;
+    right: 1rem;
+    top: 1rem;
+    text-align: center;
   }
 }

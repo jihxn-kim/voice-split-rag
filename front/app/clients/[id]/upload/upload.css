@@ -277,6 +277,10 @@
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1.5rem;
@@ -302,5 +306,9 @@
   .file-info {
     flex-direction: column;
     text-align: center;
+  }
+
+  .btn-select {
+    width: 100%;
   }
 }

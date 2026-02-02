@@ -172,6 +172,10 @@
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1.5rem;
@@ -185,5 +189,9 @@
 
   .clients-grid {
     grid-template-columns: 1fr;
+  }
+
+  .add-client-btn {
+    width: 100%;
   }
 }

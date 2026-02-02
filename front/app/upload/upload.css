@@ -1,3 +1,16 @@
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
+.main-content {
+  margin-left: 250px;
+  flex: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
 .upload-container {
   max-width: 900px;
   margin: 0 auto;
@@ -219,6 +232,15 @@
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 1.5rem;
+  }
+
   .dropzone {
     padding: 2rem 1.5rem;
     min-height: 300px;
@@ -239,5 +261,9 @@
   .file-info {
     flex-direction: column;
     text-align: center;
+  }
+
+  .btn-select {
+    width: 100%;
   }
 }
