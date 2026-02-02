@@ -248,3 +248,45 @@ def get_client_voice_records(
             for upload in uploads
         ],
     }
+
+
+@router.get("/{client_id}/upload-status", response_model=dict)
+def get_client_upload_status(
+    client_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """특정 내담자의 업로드 상태만 조회 (경량)"""
+    logger.info(f"Fetching upload status for client: id={client_id}, counselor_id={current_user.id}")
+
+    client = db.query(Client).filter(
+        Client.id == client_id,
+        Client.user_id == current_user.id
+    ).first()
+
+    if not client:
+        logger.warning(f"Client not found for upload status: id={client_id}, counselor_id={current_user.id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+
+    uploads = db.query(VoiceUpload).filter(
+        VoiceUpload.client_id == client_id,
+        VoiceUpload.user_id == current_user.id,
+        VoiceUpload.status.in_(["queued", "processing", "failed"]),
+    ).order_by(VoiceUpload.created_at.desc()).all()
+
+    return {
+        "uploads": [
+            {
+                "id": upload.id,
+                "session_number": upload.session_number,
+                "status": upload.status,
+                "error_message": upload.error_message,
+                "created_at": upload.created_at.isoformat(),
+                "updated_at": upload.updated_at.isoformat() if upload.updated_at else None,
+            }
+            for upload in uploads
+        ],
+    }

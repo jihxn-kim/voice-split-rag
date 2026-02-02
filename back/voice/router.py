@@ -562,24 +562,27 @@ def run_stt_processing_background(
                     if chunks:
                         ensure_vector_tables(db)
                         embeddings = asyncio.run(embed_texts(client_container.openai_client, chunks))
-                        for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                            db.execute(
-                                text(
-                                    """
-                                    INSERT INTO voice_record_chunks
-                                    (voice_record_id, client_id, session_number, chunk_index, content, embedding)
-                                VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
-                                    """
-                                ),
-                                {
-                                    "voice_record_id": voice_record.id,
-                                    "client_id": client_id,
-                                    "session_number": session_number,
-                                    "chunk_index": idx,
-                                    "content": chunk,
-                                    "embedding": vector_to_pg(embedding),
-                                },
-                            )
+                        params_list = [
+                            {
+                                "voice_record_id": voice_record.id,
+                                "client_id": client_id,
+                                "session_number": session_number,
+                                "chunk_index": idx,
+                                "content": chunk,
+                                "embedding": vector_to_pg(embedding),
+                            }
+                            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                        ]
+                        db.execute(
+                            text(
+                                """
+                                INSERT INTO voice_record_chunks
+                                (voice_record_id, client_id, session_number, chunk_index, content, embedding)
+                            VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
+                                """
+                            ),
+                            params_list,
+                        )
                         db.commit()
                         logger.info(f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}")
                     else:

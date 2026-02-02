@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import './detail.css';
@@ -56,6 +56,7 @@ export default function ClientDetailPage() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [newSessionCount, setNewSessionCount] = useState('');
   const [showRecordsView, setShowRecordsView] = useState(true); // 기본적으로 펼쳐진 상태
+  const hasPendingRef = useRef(false);
 
   useEffect(() => {
     if (clientId) {
@@ -80,10 +81,8 @@ export default function ClientDetailPage() {
 
       if (recordsRes.ok) {
         const recordsData = await recordsRes.json();
-        console.log('Voice records fetched:', recordsData); // 디버깅용
         const records = recordsData?.records;
         setVoiceRecords(Array.isArray(records) ? records : Array.isArray(recordsData) ? recordsData : []);
-        setPendingUploads(Array.isArray(recordsData?.uploads) ? recordsData.uploads : []);
       } else if (recordsRes.status === 401) {
         localStorage.removeItem('access_token');
         router.push('/login');
@@ -92,6 +91,42 @@ export default function ClientDetailPage() {
       console.error('Failed to fetch voice records:', err);
     }
   }, [clientId, router]);
+
+  const fetchUploadStatus = useCallback(async (tokenOverride?: string) => {
+    try {
+      const token = tokenOverride || localStorage.getItem('access_token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const statusRes = await fetch(`/api/clients/${clientId}/upload-status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        const uploads = Array.isArray(statusData?.uploads) ? statusData.uploads : [];
+        setPendingUploads(uploads);
+
+        const hasPending = uploads.some(
+          (upload: UploadStatus) =>
+            upload.status === 'queued' || upload.status === 'processing'
+        );
+        if (hasPendingRef.current && !hasPending) {
+          await fetchVoiceRecords(token);
+        }
+        hasPendingRef.current = hasPending;
+      } else if (statusRes.status === 401) {
+        localStorage.removeItem('access_token');
+        router.push('/login');
+      }
+    } catch (err) {
+      console.error('Failed to fetch upload status:', err);
+    }
+  }, [clientId, fetchVoiceRecords, router]);
 
   const fetchClientData = async () => {
     try {
@@ -124,6 +159,7 @@ export default function ClientDetailPage() {
       setClient(clientData);
 
       await fetchVoiceRecords(token);
+      await fetchUploadStatus(token);
     } catch (err: any) {
       setError(err.message || '오류가 발생했습니다.');
     } finally {
@@ -139,11 +175,11 @@ export default function ClientDetailPage() {
     if (!hasPending) return;
 
     const intervalId = setInterval(() => {
-      fetchVoiceRecords();
+      fetchUploadStatus();
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [clientId, pendingUploads, fetchVoiceRecords]);
+  }, [clientId, pendingUploads, fetchUploadStatus]);
 
   const updateSessionCount = async () => {
     const count = parseInt(newSessionCount);
@@ -413,10 +449,6 @@ export default function ClientDetailPage() {
                           <div className="session-uploading">
                             <div className="uploading-spinner" />
                             <div className="uploading-text">업로드 중...</div>
-                            <div className="uploading-subtext">
-                              {uploadStatus === 'queued' ? '대기 중' : 'STT 처리 중'}
-                              {box.sessionNumber === 1 ? ' · AI 분석 포함' : ''}
-                            </div>
                           </div>
                         ) : record ? (
                           <div className="session-info">
