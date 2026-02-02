@@ -150,6 +150,11 @@ export default function RecordDetailPage() {
     return trimmed;
   };
 
+  const getDisplaySpeakerLabel = (speakerId: string) => {
+    const nextName = (speakerEdits[speakerId] || "").trim();
+    return nextName || formatSpeakerLabel(speakerId);
+  };
+
   useEffect(() => {
     if (!record?.segments_data?.length) return;
     const seen = new Set<string>();
@@ -188,7 +193,7 @@ export default function RecordDetailPage() {
     const speakerCounts = new Map<string, number>();
     return record.segments_data
       .map((segment) => {
-        const rawLabel = formatSpeakerLabel(segment.speaker_id);
+        const rawLabel = getDisplaySpeakerLabel(segment.speaker_id);
         const label = normalizeSpeakerLabel(rawLabel);
         const nextCount = (speakerCounts.get(label) || 0) + 1;
         speakerCounts.set(label, nextCount);
@@ -223,6 +228,17 @@ export default function RecordDetailPage() {
       ordered.push(speakerId);
     });
     return ordered;
+  };
+
+  const handleEditSpeaker = (speakerId: string) => {
+    const currentName = getDisplaySpeakerLabel(speakerId);
+    const nextName = window.prompt("화자 이름을 입력하세요.", currentName);
+    if (nextName === null) return;
+    const trimmed = nextName.trim();
+    setSpeakerEdits((prev) => ({
+      ...prev,
+      [speakerId]: trimmed,
+    }));
   };
 
   const handleSaveSpeakers = async () => {
@@ -270,6 +286,12 @@ export default function RecordDetailPage() {
     } finally {
       setIsSavingSpeakers(false);
     }
+  };
+
+  const getSpeakerIcon = (label: string) => {
+    if (label.includes("상담사")) return "🧑‍⚕️";
+    if (label.includes("내담자")) return "🧑";
+    return "👤";
   };
 
   const getSpeakerRole = (speakerId: string) => {
@@ -362,18 +384,11 @@ export default function RecordDetailPage() {
             </div>
 
             <div className="metadata">
-              <div className="meta-item">
-                <strong>화자 수:</strong> {record.total_speakers}명
-              </div>
-              <div className="meta-item">
-                <strong>생성일:</strong> {formatDate(record.created_at)}
-              </div>
-            </div>
-
-            {speakerIds.length > 0 ? (
-              <div className="speaker-list-card">
-                <div className="speaker-list-header">
-                  <h3 className="speaker-list-title">화자 목록</h3>
+              <div className="meta-item meta-speakers">
+                <div className="meta-speakers-header">
+                  <div className="meta-speakers-count">
+                    <strong>화자 수:</strong> {record.total_speakers}명
+                  </div>
                   <button
                     type="button"
                     className="speaker-save-btn"
@@ -383,28 +398,31 @@ export default function RecordDetailPage() {
                     {isSavingSpeakers ? "저장 중..." : "이름 저장"}
                   </button>
                 </div>
-                <div className="speaker-list">
-                  {speakerIds.map((speakerId) => (
-                    <div key={speakerId} className="speaker-item">
-                      <span className="speaker-tag">
-                        {formatSpeakerLabel(speakerId)}
-                      </span>
-                      <input
-                        className="speaker-input"
-                        value={speakerEdits[speakerId] ?? ""}
-                        onChange={(e) =>
-                          setSpeakerEdits((prev) => ({
-                            ...prev,
-                            [speakerId]: e.target.value,
-                          }))
-                        }
-                        placeholder="이름 입력"
-                      />
-                    </div>
-                  ))}
-                </div>
+                {speakerIds.length > 0 ? (
+                  <div className="speaker-chips">
+                    {speakerIds.map((speakerId) => {
+                      const displayName = getDisplaySpeakerLabel(speakerId);
+                      return (
+                        <button
+                          key={speakerId}
+                          type="button"
+                          className="speaker-chip"
+                          onClick={() => handleEditSpeaker(speakerId)}
+                        >
+                          <span className="speaker-icon">
+                            {getSpeakerIcon(displayName)}
+                          </span>
+                          <span className="speaker-name">{displayName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+              <div className="meta-item">
+                <strong>생성일:</strong> {formatDate(record.created_at)}
+              </div>
+            </div>
 
             {record.next_session_goal ? (
               <div className="next-goal-card">
@@ -441,7 +459,7 @@ export default function RecordDetailPage() {
                           <div className="segment-header">
                             <div className="segment-speaker-group">
                               <span className="segment-speaker">
-                                {formatSpeakerLabel(segment.speaker_id)}
+                                {getDisplaySpeakerLabel(segment.speaker_id)}
                               </span>
                               <span className="segment-count">{nextCount}</span>
                             </div>
