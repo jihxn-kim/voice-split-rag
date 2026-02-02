@@ -38,6 +38,7 @@ export default function RecordDetailPage() {
   const router = useRouter();
   const params = useParams();
   const recordId = params.id as string;
+  const [isCopied, setIsCopied] = useState(false);
 
   const [record, setRecord] = useState<VoiceRecordDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,6 +140,53 @@ export default function RecordDetailPage() {
     return `발화자 ${trimmed}`;
   };
 
+  const normalizeSpeakerLabel = (label: string) => {
+    const trimmed = (label || "").toString().trim();
+    if (!trimmed) return "발화자";
+    if (trimmed.startsWith("상담사")) {
+      const suffix = trimmed.replace("상담사", "").replace(/\s+/g, "");
+      return suffix ? `상담사${suffix}` : "상담사A";
+    }
+    if (trimmed.startsWith("내담자")) {
+      const suffix = trimmed.replace("내담자", "").replace(/\s+/g, "");
+      return suffix ? `내담자${suffix}` : "내담자A";
+    }
+    if (trimmed.startsWith("발화자")) {
+      const suffix = trimmed.replace("발화자", "").replace(/\s+/g, "");
+      return suffix ? `발화자${suffix}` : "발화자";
+    }
+    return trimmed.replace(/\s+/g, "");
+  };
+
+  const buildDialogueCopyText = () => {
+    if (!record?.segments_data?.length) return "";
+    const speakerCounts = new Map<string, number>();
+    return record.segments_data
+      .map((segment) => {
+        const rawLabel = formatSpeakerLabel(segment.speaker_id);
+        const label = normalizeSpeakerLabel(rawLabel);
+        const nextCount = (speakerCounts.get(label) || 0) + 1;
+        speakerCounts.set(label, nextCount);
+        const text = (segment.text || "").trim();
+        return `${label} ${nextCount} : ${text}`;
+      })
+      .join("\n");
+  };
+
+  const handleCopyDialogue = async () => {
+    if (!record?.segments_data?.length) return;
+    const text = buildDialogueCopyText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy dialogue:", err);
+      alert("복사에 실패했습니다.");
+    }
+  };
+
   const getSpeakerRole = (speakerId: string) => {
     const label = (speakerId || "").toString();
     if (label.includes("상담사")) return "counselor";
@@ -231,7 +279,17 @@ export default function RecordDetailPage() {
             </div>
 
             <div className="section">
-              <h2 className="section-title">📝 상담 대화</h2>
+              <div className="section-header">
+                <h2 className="section-title">📝 상담 대화</h2>
+                <button
+                  type="button"
+                  onClick={handleCopyDialogue}
+                  className={`copy-dialogue-btn ${isCopied ? "copied" : ""}`}
+                  disabled={!record.segments_data?.length}
+                >
+                  {isCopied ? "복사됨" : "전체 복사"}
+                </button>
+              </div>
               <div className="segments-list">
                 {(() => {
                   const speakerCounts = new Map<string, number>();

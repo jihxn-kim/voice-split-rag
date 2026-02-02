@@ -433,12 +433,17 @@ def run_stt_processing_background(
         logger.info(f"[bg] File downloaded to: {temp_file_path}")
 
         transcriber = aai.Transcriber()
+        lang = (language_code or "ko").lower()
+        enable_disfluencies = lang.startswith("en")
+        if not enable_disfluencies:
+            logger.info(f"[bg] Disfluencies not supported for language_code={lang}, disabling.")
+
         config = aai.TranscriptionConfig(
             speaker_labels=True,
             language_code=language_code or "ko",
             punctuate=True,
-            format_text=True,
-            disfluencies=True,
+            format_text=False,
+            disfluencies=enable_disfluencies,
             filter_profanity=False,
         )
 
@@ -818,12 +823,17 @@ async def speaker_diarization_v2(
         transcriber = aai.Transcriber()
         
         # 트랜스크립션 설정
+        lang = (language_code or "ko").lower()
+        enable_disfluencies = lang.startswith("en")
+        if not enable_disfluencies:
+            logger.info(f"Disfluencies not supported for language_code={lang}, disabling.")
+
         config = aai.TranscriptionConfig(
             speaker_labels=True,  # 화자 구분 활성화
             language_code=language_code,  # 언어 설정
             punctuate=True,  # 자동 구두점 (기본값: True)
-            format_text=True,  # 텍스트 포맷팅 (숫자, 날짜 등)
-            disfluencies=True,  # 필러 단어 유지 ("음", "어" 등)
+            format_text=False,  # 텍스트 포맷팅 비활성화
+            disfluencies=enable_disfluencies,  # 영어만 필러 단어 유지 지원
             filter_profanity=False,  # 욕설 필터링 - 상담 분석용이므로 False
         )
         
