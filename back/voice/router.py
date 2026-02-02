@@ -438,7 +438,7 @@ def run_stt_processing_background(
             language_code=language_code or "ko",
             punctuate=True,
             format_text=True,
-            disfluencies=False,
+            disfluencies=True,
             filter_profanity=False,
         )
 
@@ -823,7 +823,7 @@ async def speaker_diarization_v2(
             language_code=language_code,  # 언어 설정
             punctuate=True,  # 자동 구두점 (기본값: True)
             format_text=True,  # 텍스트 포맷팅 (숫자, 날짜 등)
-            disfluencies=False,  # 필러 단어 제거 ("음", "어" 등) - False면 유지
+            disfluencies=True,  # 필러 단어 유지 ("음", "어" 등)
             filter_profanity=False,  # 욕설 필터링 - 상담 분석용이므로 False
         )
         
