@@ -106,3 +106,52 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const params = await context.params;
+  try {
+    const backendUrl = process.env.BACKEND_URL;
+
+    if (!backendUrl) {
+      return NextResponse.json(
+        { message: 'Server configuration error: Missing backend URL' },
+        { status: 500 }
+      );
+    }
+
+    const authorization = req.headers.get('authorization');
+    if (!authorization) {
+      return NextResponse.json(
+        { message: 'Unauthorized: No token provided' },
+        { status: 401 }
+      );
+    }
+
+    const response = await fetch(`${backendUrl}/voice/records/${params.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': authorization,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { message: data.detail || 'Failed to delete record' },
+        { status: response.status }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('Delete record API error:', error);
+    return NextResponse.json(
+      { message: 'Internal server error', error: error.message },
+      { status: 500 }
+    );
+  }
+}

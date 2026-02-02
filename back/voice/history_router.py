@@ -5,6 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from auth.dependencies import get_current_active_user
+from config.dependencies import get_s3_client, get_s3_bucket_name
 from models.user import User
 from models.voice_record import VoiceRecord
 from models.voice_record_goal import VoiceRecordGoal
@@ -212,6 +213,8 @@ async def delete_voice_record(
     record_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+    bucket_name: str = Depends(get_s3_bucket_name),
 ):
     """음성 기록 삭제
     
@@ -235,6 +238,14 @@ async def delete_voice_record(
         if not record:
             raise BadRequest("기록을 찾을 수 없습니다.", code="RECORD_NOT_FOUND")
         
+        # S3 삭제 (있으면)
+        if record.s3_key and s3_client and bucket_name:
+            try:
+                s3_client.delete_object(Bucket=bucket_name, Key=record.s3_key)
+                logger.info(f"S3 object deleted: s3://{bucket_name}/{record.s3_key}")
+            except Exception as e:
+                logger.warning(f"Failed to delete S3 object: {str(e)}")
+
         # 삭제
         db.delete(record)
         db.commit()

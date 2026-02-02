@@ -9,6 +9,7 @@ interface VoiceRecordDetail {
   id: number;
   title: string;
   user_id: number;
+  client_id: number | null;
   s3_key: string | null;
   original_filename: string | null;
   total_speakers: number;
@@ -288,6 +289,39 @@ export default function RecordDetailPage() {
     }
   };
 
+  const handleDeleteRecord = async () => {
+    if (!record) return;
+    const confirmDelete = window.confirm("이 회기 상담 기록을 삭제할까요? 복구할 수 없습니다.");
+    if (!confirmDelete) return;
+
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch(`/api/voice/records/${recordId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("삭제에 실패했습니다.");
+      }
+
+      if (record.client_id) {
+        router.push(`/clients/${record.client_id}`);
+      } else {
+        router.push("/history");
+      }
+    } catch (err: any) {
+      alert(err.message || "삭제 중 오류가 발생했습니다.");
+    }
+  };
+
   const getSpeakerIcon = (label: string) => {
     if (label.includes("상담사")) return "🧑‍⚕️";
     if (label.includes("내담자")) return "🧑";
@@ -373,12 +407,17 @@ export default function RecordDetailPage() {
               ) : (
                 <div className="title-display">
                   <h1 className="detail-title">{record.title}</h1>
-                  <button
-                    onClick={() => setEditingTitle(true)}
-                    className="edit-btn"
-                  >
-                    ✏️ 수정
-                  </button>
+                  <div className="title-actions">
+                    <button
+                      onClick={() => setEditingTitle(true)}
+                      className="edit-btn"
+                    >
+                      ✏️ 수정
+                    </button>
+                    <button onClick={handleDeleteRecord} className="delete-btn">
+                      🗑️ 삭제
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

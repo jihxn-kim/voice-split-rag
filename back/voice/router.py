@@ -436,8 +436,12 @@ def build_speaker_label_map(speaker_ids: list[str], counselor_id: str) -> dict[s
     """상담사/내담자 라벨 매핑 생성"""
     label_map: dict[str, str] = {counselor_id: "상담사"}
     client_index = 0
+    has_single_client = len(speaker_ids) == 2
     for speaker_id in speaker_ids:
         if speaker_id == counselor_id:
+            continue
+        if has_single_client:
+            label_map[speaker_id] = "내담자"
             continue
         if client_index < 26:
             suffix = chr(ord("A") + client_index)
