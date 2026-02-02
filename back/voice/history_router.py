@@ -9,6 +9,7 @@ from config.dependencies import get_s3_client, get_s3_bucket_name
 from models.user import User
 from models.voice_record import VoiceRecord
 from models.voice_record_goal import VoiceRecordGoal
+from models.voice_upload import VoiceUpload
 from schemas.voice_record import VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate
 from database import get_db
 from logs.logging_util import LoggerSingleton
@@ -245,6 +246,14 @@ async def delete_voice_record(
                 logger.info(f"S3 object deleted: s3://{bucket_name}/{record.s3_key}")
             except Exception as e:
                 logger.warning(f"Failed to delete S3 object: {str(e)}")
+
+        # 같은 회기 업로드 상태 정리
+        if record.client_id and record.session_number is not None:
+            db.query(VoiceUpload).filter(
+                VoiceUpload.client_id == record.client_id,
+                VoiceUpload.user_id == current_user.id,
+                VoiceUpload.session_number == record.session_number,
+            ).delete(synchronize_session=False)
 
         # 삭제
         db.delete(record)
