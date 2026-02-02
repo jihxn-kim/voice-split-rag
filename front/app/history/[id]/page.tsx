@@ -287,7 +287,7 @@ export default function RecordDetailPage() {
 
             <div className="section">
               <div className="section-header">
-                <h2 className="section-title">📝 상담 대화</h2>
+                <h2 className="section-title">📝 축어록</h2>
                 <button
                   type="button"
                   onClick={handleCopyDialogue}

@@ -265,7 +265,7 @@ export default function ClientEditPage() {
 
             <div className="form-group">
               <div className="label-with-ai">
-                <label htmlFor="consultation_background">상담신청배경 *</label>
+                <label htmlFor="consultation_background">상담 신청 배경 *</label>
                 {client.ai_analysis_completed && client.ai_consultation_background && (
                   <button
                     type="button"
@@ -304,7 +304,7 @@ export default function ClientEditPage() {
 
             <div className="form-group">
               <div className="label-with-ai">
-                <label htmlFor="main_complaint">주호소문제 *</label>
+                <label htmlFor="main_complaint">주 호소 문제 *</label>
                 {client.ai_analysis_completed && client.ai_main_complaint && (
                   <button
                     type="button"
@@ -343,7 +343,7 @@ export default function ClientEditPage() {
 
             <div className="form-group">
               <div className="label-with-ai">
-                <label htmlFor="current_symptoms">현재 나타나고 있는 증상(본인호소) *</label>
+                <label htmlFor="current_symptoms">현재 증상 *</label>
                 {client.ai_analysis_completed && client.ai_current_symptoms && (
                   <button
                     type="button"
@@ -374,7 +374,7 @@ export default function ClientEditPage() {
                 id="current_symptoms"
                 value={currentSymptoms}
                 onChange={(e) => setCurrentSymptoms(e.target.value)}
-                placeholder="현재 나타나고 있는 증상을 입력하세요"
+                placeholder="현재 증상을 입력하세요"
                 rows={4}
                 required
               />

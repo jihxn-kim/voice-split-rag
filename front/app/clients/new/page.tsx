@@ -158,7 +158,7 @@ export default function NewClientPage() {
 
               <div className="form-group">
                 <label htmlFor="consultation_background" className="form-label">
-                  상담신청배경 <span className="required">*</span>
+                  상담 신청 배경 <span className="required">*</span>
                 </label>
                 <textarea
                   id="consultation_background"
@@ -174,7 +174,7 @@ export default function NewClientPage() {
 
               <div className="form-group">
                 <label htmlFor="main_complaint" className="form-label">
-                  주호소문제 <span className="required">*</span>
+                  주 호소 문제 <span className="required">*</span>
                 </label>
                 <textarea
                   id="main_complaint"
@@ -190,7 +190,7 @@ export default function NewClientPage() {
 
               <div className="form-group">
                 <label htmlFor="current_symptoms" className="form-label">
-                  현재 나타나고 있는 증상(본인호소) <span className="required">*</span>
+                  현재 증상 <span className="required">*</span>
                 </label>
                 <textarea
                   id="current_symptoms"
@@ -200,7 +200,7 @@ export default function NewClientPage() {
                   className="form-textarea"
                   required
                   rows={4}
-                  placeholder="내담자가 호소하는 현재 증상을 입력해주세요."
+                  placeholder="현재 증상을 입력해주세요."
                 />
               </div>
 

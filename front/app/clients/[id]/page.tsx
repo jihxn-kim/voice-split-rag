@@ -334,17 +334,17 @@ export default function ClientDetailPage() {
 
             <div className="info-grid">
               <div className="info-section">
-                <h3 className="info-title">상담신청배경 (입력)</h3>
+                <h3 className="info-title">상담 신청 배경 (입력)</h3>
                 <p className="info-text">{client.consultation_background}</p>
               </div>
 
               <div className="info-section">
-                <h3 className="info-title">주호소문제 (입력)</h3>
+                <h3 className="info-title">주 호소 문제 (입력)</h3>
                 <p className="info-text">{client.main_complaint}</p>
               </div>
 
               <div className="info-section">
-                <h3 className="info-title">현재 증상(본인호소)</h3>
+                <h3 className="info-title">현재 증상</h3>
                 <p className="info-text">{client.current_symptoms}</p>
               </div>
             </div>
@@ -371,14 +371,14 @@ export default function ClientDetailPage() {
               <div className="ai-info-grid">
                 {client.ai_consultation_background && (
                   <div className="ai-info-section">
-                    <h3 className="ai-info-title">✨ 상담신청 배경</h3>
+                    <h3 className="ai-info-title">✨ 상담 신청 배경</h3>
                     <p className="ai-info-text">{client.ai_consultation_background}</p>
                   </div>
                 )}
 
                 {client.ai_main_complaint && (
                   <div className="ai-info-section">
-                    <h3 className="ai-info-title">💡 주호소문제</h3>
+                    <h3 className="ai-info-title">💡 주 호소 문제</h3>
                     <p className="ai-info-text">{client.ai_main_complaint}</p>
                   </div>
                 )}
