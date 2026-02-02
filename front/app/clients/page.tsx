@@ -12,6 +12,8 @@ interface Client {
   gender: string;
   main_complaint: string;
   created_at: string;
+  total_sessions: number;
+  uploaded_sessions: number;
 }
 
 export default function ClientsPage() {
@@ -121,23 +123,38 @@ export default function ClientsPage() {
             </div>
           ) : (
             <div className="clients-grid">
-              {clients.map((client) => (
-                <div
-                  key={client.id}
-                  className="client-card"
-                  onClick={() => router.push(`/clients/${client.id}`)}
-                >
-                  <div className="client-card-header">
-                    <h3 className="client-name">{client.name}</h3>
-                    <div className="client-meta">
-                      <span className="client-age">{client.age}세</span>
-                      <span className="client-gender">{client.gender}</span>
+              {clients.map((client) => {
+                const uploadedSessions = client.uploaded_sessions ?? 0;
+                const totalSessions = client.total_sessions ?? 0;
+                const isCompleted = totalSessions > 0 && uploadedSessions >= totalSessions;
+                const sessionLabel = isCompleted ? '완료' : `${uploadedSessions}/${totalSessions}`;
+
+                return (
+                  <div
+                    key={client.id}
+                    className="client-card"
+                    onClick={() => router.push(`/clients/${client.id}`)}
+                  >
+                    <div className="client-card-header">
+                      <h3 className="client-name">{client.name}</h3>
+                      <div className="client-meta">
+                        <span className="client-age">{client.age}세</span>
+                        <span className="client-gender">{client.gender}</span>
+                      </div>
                     </div>
+                    <p className="client-complaint">{client.main_complaint}</p>
+                    <div className="client-session-row">
+                      <span className="client-session-label">회기</span>
+                      <span
+                        className={`client-session-badge ${isCompleted ? 'complete' : ''}`}
+                      >
+                        {sessionLabel}
+                      </span>
+                    </div>
+                    <p className="client-date">등록일: {formatDate(client.created_at)}</p>
                   </div>
-                  <p className="client-complaint">{client.main_complaint}</p>
-                  <p className="client-date">등록일: {formatDate(client.created_at)}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -57,6 +57,8 @@ class ClientListItem(BaseModel):
     name: str
     age: int
     gender: str
+    total_sessions: int
+    uploaded_sessions: int
     main_complaint: str  # 주호소문제만 표시
     created_at: datetime
 

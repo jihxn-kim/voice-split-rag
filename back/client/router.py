@@ -4,6 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from database import get_db
 from models.client import Client
@@ -68,11 +69,33 @@ def get_clients(
                    .offset(skip)\
                    .limit(limit)\
                    .all()
+
+    client_ids = [client.id for client in clients]
+    upload_counts = {}
+    if client_ids:
+        upload_counts = dict(
+            db.query(VoiceRecord.client_id, func.count(VoiceRecord.id))
+            .filter(VoiceRecord.client_id.in_(client_ids))
+            .group_by(VoiceRecord.client_id)
+            .all()
+        )
+
+    client_items = []
+    for client in clients:
+        client_items.append(
+            ClientListItem(
+                id=client.id,
+                name=client.name,
+                age=client.age,
+                gender=client.gender,
+                total_sessions=client.total_sessions or 0,
+                uploaded_sessions=upload_counts.get(client.id, 0),
+                main_complaint=client.main_complaint,
+                created_at=client.created_at,
+            )
+        )
     
-    return ClientListResponse(
-        total=total,
-        clients=[ClientListItem.from_orm(client) for client in clients]
-    )
+    return ClientListResponse(total=total, clients=client_items)
 
 
 @router.get("/{client_id}", response_model=ClientResponse)

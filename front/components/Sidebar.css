@@ -15,10 +15,11 @@
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .sidebar-logo {
-  height: 36px;
+  height: 120px;
   width: auto;
   max-width: 100%;
   display: block;
@@ -109,7 +110,7 @@
   }
 
   .sidebar-logo {
-    height: 30px;
+    height: 120px;
   }
 
   .sidebar-nav {

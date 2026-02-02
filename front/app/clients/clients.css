@@ -163,6 +163,35 @@
   -webkit-box-orient: vertical;
 }
 
+.client-session-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.client-session-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.client-session-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+.client-session-badge.complete {
+  background: #ecfdf3;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
 .client-date {
   font-size: 0.85rem;
   color: #9ca3af;
