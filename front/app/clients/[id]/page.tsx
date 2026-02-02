@@ -213,6 +213,37 @@ export default function ClientDetailPage() {
     }
   };
 
+  const handleDeleteClient = async () => {
+    if (!client) return;
+    const confirmDelete = window.confirm(
+      "내담자를 삭제할까요? 관련된 모든 상담 기록과 업로드 파일이 함께 삭제됩니다."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('내담자 삭제에 실패했습니다.');
+      }
+
+      router.push('/clients');
+    } catch (err: any) {
+      alert(err.message || '내담자 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -355,6 +386,9 @@ export default function ClientDetailPage() {
                 className="edit-btn"
               >
                 ✏️ 정보 수정
+              </button>
+              <button onClick={handleDeleteClient} className="delete-client-btn">
+                🗑️ 내담자 삭제
               </button>
             </div>
 

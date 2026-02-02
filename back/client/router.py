@@ -13,6 +13,7 @@ from models.voice_upload import VoiceUpload
 from schemas.client import ClientCreate, ClientUpdate, ClientResponse, ClientListResponse, ClientListItem
 from auth.dependencies import get_current_active_user
 from models.user import User
+from config.dependencies import get_s3_client, get_s3_bucket_name
 from logs.logging_util import LoggerSingleton
 import logging
 
@@ -160,7 +161,9 @@ def update_client(
 def delete_client(
     client_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+    bucket_name: str = Depends(get_s3_bucket_name),
 ):
     """내담자 삭제 (관련 음성 기록도 함께 삭제)"""
     logger.info(f"Deleting client: id={client_id}, counselor_id={current_user.id}")
@@ -177,6 +180,26 @@ def delete_client(
             detail="Client not found"
         )
     
+    voice_records = db.query(VoiceRecord).filter(
+        VoiceRecord.client_id == client_id,
+        VoiceRecord.user_id == current_user.id
+    ).all()
+    voice_uploads = db.query(VoiceUpload).filter(
+        VoiceUpload.client_id == client_id,
+        VoiceUpload.user_id == current_user.id
+    ).all()
+
+    s3_keys = {record.s3_key for record in voice_records if record.s3_key}
+    s3_keys.update({upload.s3_key for upload in voice_uploads if upload.s3_key})
+
+    if s3_client and bucket_name:
+        for s3_key in s3_keys:
+            try:
+                s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
+                logger.info(f"S3 object deleted: s3://{bucket_name}/{s3_key}")
+            except Exception as e:
+                logger.warning(f"Failed to delete S3 object: {s3_key} ({str(e)})")
+
     db.delete(client)
     db.commit()
     

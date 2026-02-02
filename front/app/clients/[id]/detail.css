@@ -155,6 +155,23 @@
   color: #6366f1;
 }
 
+.delete-client-btn {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.delete-client-btn:hover {
+  background: #fecaca;
+  border-color: #f87171;
+}
+
 .info-grid {
   display: grid;
   gap: 1.5rem;
@@ -710,6 +727,10 @@
   }
 
   .edit-btn {
+    width: 100%;
+  }
+
+  .delete-client-btn {
     width: 100%;
   }
 
