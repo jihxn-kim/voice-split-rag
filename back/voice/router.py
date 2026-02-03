@@ -951,10 +951,21 @@ def run_stt_processing_background_speechmatics(
             status_job = status_payload.get("job", status_payload)
             status = str(status_job.get("status") or "").lower()
             job_duration = status_job.get("duration") or job_duration
+            status_message = (
+                status_job.get("message")
+                or status_job.get("detail")
+                or status_job.get("error")
+            )
+            status_errors = status_job.get("errors")
 
             if status == "done":
                 break
             if status in {"rejected", "failed", "error", "expired", "deleted"}:
+                if status_message or status_errors:
+                    logger.error(
+                        "[bg] Speechmatics job failed: "
+                        f"status={status}, message={status_message}, errors={status_errors}"
+                    )
                 raise RuntimeError(f"Speechmatics job failed with status: {status}")
             if time.time() - poll_started > poll_timeout:
                 raise TimeoutError("Speechmatics job timed out")
