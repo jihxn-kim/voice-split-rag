@@ -532,8 +532,12 @@ def parse_speechmatics_results(results: list[dict]) -> tuple[list[dict], dict[st
         if not token:
             continue
         token_type = str(item.get("type") or "")
-        speaker = alt.get("speaker") or item.get("speaker") or "UU"
-        speaker = str(speaker)
+        raw_speaker = alt.get("speaker")
+        if raw_speaker is None or raw_speaker == "":
+            raw_speaker = item.get("speaker")
+        speaker = str(raw_speaker).strip() if raw_speaker is not None else ""
+        if not speaker:
+            speaker = "??"
         start_time = item.get("start_time")
         end_time = item.get("end_time")
 
@@ -901,7 +905,7 @@ def run_stt_processing_background_speechmatics(
                 "diarization": "speaker",
                 "speaker_diarization_config": {
                     "prefer_current_speaker": True,
-                    "speaker_sensitivity": 0.8,
+                    "speaker_sensitivity": 1.0,
                 },
                 "transcript_filtering_config": {"remove_disfluencies": False},
                 "audio_filtering_config": {"volume_threshold": 0},
