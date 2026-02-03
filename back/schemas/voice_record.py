@@ -20,6 +20,7 @@ class VoiceRecordCreate(BaseModel):
     full_transcript: str
     speakers_data: List[dict]
     segments_data: List[dict]
+    segments_merged_data: Optional[List[dict]] = None
     dialogue: str
     language_code: str = "ko"
     duration: Optional[int] = None
@@ -44,6 +45,7 @@ class VoiceRecordResponse(BaseModel):
     full_transcript: str
     speakers_data: List[dict]
     segments_data: List[dict]
+    segments_merged_data: Optional[List[dict]] = None
     dialogue: str
     language_code: str
     duration: Optional[int]

@@ -28,6 +28,13 @@ interface VoiceRecordDetail {
     end_time: number;
     duration: number;
   }>;
+  segments_merged_data?: Array<{
+    speaker_id: string;
+    text: string;
+    start_time: number;
+    end_time: number;
+    duration: number;
+  }>;
   dialogue: string;
   language_code: string;
   duration: number | null;
@@ -157,10 +164,13 @@ export default function RecordDetailPage() {
   };
 
   useEffect(() => {
-    if (!record?.segments_data?.length) return;
+    const displaySegments = record?.segments_merged_data?.length
+      ? record.segments_merged_data
+      : record?.segments_data;
+    if (!displaySegments?.length) return;
     const seen = new Set<string>();
     const nextEdits: Record<string, string> = {};
-    record.segments_data.forEach((segment) => {
+    displaySegments.forEach((segment) => {
       const speakerId = (segment.speaker_id || "").toString().trim();
       if (!speakerId || seen.has(speakerId)) return;
       seen.add(speakerId);
@@ -190,9 +200,12 @@ export default function RecordDetailPage() {
   };
 
   const buildDialogueCopyText = () => {
-    if (!record?.segments_data?.length) return "";
+    const displaySegments = record?.segments_merged_data?.length
+      ? record.segments_merged_data
+      : record?.segments_data;
+    if (!displaySegments?.length) return "";
     const speakerCounts = new Map<string, number>();
-    return record.segments_data
+    return displaySegments
       .map((segment) => {
         const rawLabel = getDisplaySpeakerLabel(segment.speaker_id);
         const label = normalizeSpeakerLabel(rawLabel);
@@ -219,10 +232,13 @@ export default function RecordDetailPage() {
   };
 
   const getSpeakerIds = () => {
-    if (!record?.segments_data?.length) return [];
+    const displaySegments = record?.segments_merged_data?.length
+      ? record.segments_merged_data
+      : record?.segments_data;
+    if (!displaySegments?.length) return [];
     const seen = new Set<string>();
     const ordered: string[] = [];
-    record.segments_data.forEach((segment) => {
+    displaySegments.forEach((segment) => {
       const speakerId = (segment.speaker_id || "").toString().trim();
       if (!speakerId || seen.has(speakerId)) return;
       seen.add(speakerId);
@@ -485,7 +501,10 @@ export default function RecordDetailPage() {
               <div className="segments-list">
                 {(() => {
                   const speakerCounts = new Map<string, number>();
-                  return record.segments_data.map((segment, index) => {
+                  const displaySegments = record.segments_merged_data?.length
+                    ? record.segments_merged_data
+                    : record.segments_data;
+                  return displaySegments.map((segment, index) => {
                     const role = getSpeakerRole(segment.speaker_id);
                     const alignClass = role === "client" ? "right" : "left";
                     const speakerKey = (segment.speaker_id || "").toString();

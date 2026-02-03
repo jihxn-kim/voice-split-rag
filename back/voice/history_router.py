@@ -165,6 +165,15 @@ async def update_voice_record(
                         next_segment["speaker_id"] = renames[speaker_id]
                     updated_segments.append(next_segment)
 
+                merged_segments = record.segments_merged_data or []
+                updated_merged_segments = []
+                for segment in merged_segments:
+                    next_segment = dict(segment)
+                    speaker_id = str(next_segment.get("speaker_id", ""))
+                    if speaker_id in renames:
+                        next_segment["speaker_id"] = renames[speaker_id]
+                    updated_merged_segments.append(next_segment)
+
                 speakers = record.speakers_data or []
                 updated_speakers = []
                 for speaker in speakers:
@@ -180,6 +189,8 @@ async def update_voice_record(
                     updated_speakers.append(next_speaker)
 
                 record.segments_data = updated_segments
+                if merged_segments:
+                    record.segments_merged_data = updated_merged_segments
                 record.speakers_data = updated_speakers
                 record.dialogue = "\n".join(
                     [

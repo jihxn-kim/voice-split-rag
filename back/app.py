@@ -14,6 +14,7 @@ from voice.router import router as voice_router
 from auth.router import router as auth_router
 from config.exception import register_exception_handlers
 from database import Base, engine
+from sqlalchemy import text
 from dotenv import load_dotenv
 import os
 import logging
@@ -28,6 +29,17 @@ async def lifespan(app: FastAPI):
     # 데이터베이스 테이블 생성
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE voice_records "
+                    "ADD COLUMN IF NOT EXISTS segments_merged_data JSON"
+                )
+            )
+        logger.info("Database columns ensured successfully")
+    except Exception as e:
+        logger.warning(f"Failed to ensure database columns: {str(e)}")
     logger.info("Database tables created successfully")
     
     logger.info(

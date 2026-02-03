@@ -28,6 +28,7 @@ class VoiceRecord(Base):
     full_transcript = Column(Text, nullable=False)  # 전체 대화 텍스트
     speakers_data = Column(JSON, nullable=False)  # 화자별 데이터 (JSON)
     segments_data = Column(JSON, nullable=False)  # 세그먼트 데이터 (JSON)
+    segments_merged_data = Column(JSON, nullable=True)  # 병합 세그먼트 데이터 (JSON)
     dialogue = Column(Text, nullable=False)  # 시간순 대화
     
     # 메타데이터

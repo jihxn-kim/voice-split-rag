@@ -366,7 +366,7 @@ async def identify_counselor_speaker_id(
     openai_client: AsyncOpenAI | None,
     segments: list[dict],
 ) -> str | None:
-    """첫 5개 발화를 기반으로 상담사 화자 ID를 추정"""
+    """병합된 발화 중 앞 5개를 기반으로 상담사 화자 ID를 추정"""
     if not openai_client:
         logger.warning("OpenAI client not available, skipping counselor identification")
         return None
@@ -383,7 +383,9 @@ async def identify_counselor_speaker_id(
     if len(speaker_ids) < 2:
         return None
 
-    sample_segments = segments[:5]
+    merged_segments = merge_segments(segments)
+    sample_source = merged_segments if merged_segments else segments
+    sample_segments = sample_source[:5]
     lines = []
     for idx, seg in enumerate(sample_segments, start=1):
         text = (seg.get("text") or "").strip()
@@ -586,6 +588,51 @@ def mask_sensitive_text(text: str) -> str:
     for pattern, replacement in SENSITIVE_PATTERNS:
         masked = pattern.sub(replacement, masked)
     return masked
+
+
+def merge_segments(segments: list[dict], gap_sec: float = 1.5) -> list[dict]:
+    merged: list[dict] = []
+    current: dict | None = None
+
+    for seg in segments:
+        if not isinstance(seg, dict):
+            continue
+        speaker_id = str(seg.get("speaker_id") or "").strip()
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        start_time = float(seg.get("start_time") or 0.0)
+        end_time = float(seg.get("end_time") or start_time)
+
+        if current is None:
+            current = {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+            continue
+
+        gap = start_time - float(current.get("end_time") or start_time)
+        if speaker_id == current.get("speaker_id") and gap <= gap_sec:
+            current["text"] = (current.get("text", "") + " " + text).strip()
+            current["end_time"] = max(float(current.get("end_time") or end_time), end_time)
+            current["duration"] = float(current["end_time"]) - float(current["start_time"])
+        else:
+            merged.append(current)
+            current = {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+
+    if current is not None:
+        merged.append(current)
+
+    return merged
 
 
 def parse_deepgram_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
@@ -1448,6 +1495,8 @@ def run_stt_processing_background_deepgram_nova2(
             speaker["text"] = mask_sensitive_text(str(spk_text))
         full_transcript = mask_sensitive_text(full_transcript)
 
+        merged_segments = merge_segments(segments)
+
         sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
 
         dialogue_prefix = "" if labels_applied else "발화자 "
@@ -1475,6 +1524,7 @@ def run_stt_processing_background_deepgram_nova2(
             full_transcript=full_transcript,
             speakers_data=sorted_speakers,
             segments_data=segments,
+            segments_merged_data=merged_segments,
             dialogue=dialogue,
             language_code="ko",
             duration=total_duration,
