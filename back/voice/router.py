@@ -957,15 +957,20 @@ def run_stt_processing_background_speechmatics(
                 or status_job.get("error")
             )
             status_errors = status_job.get("errors")
+            try:
+                payload_text = json.dumps(status_payload, ensure_ascii=False)
+            except Exception:
+                payload_text = str(status_payload)
+            if len(payload_text) > 2000:
+                payload_text = payload_text[:2000] + "...(truncated)"
 
             if status == "done":
                 break
             if status in {"rejected", "failed", "error", "expired", "deleted"}:
-                if status_message or status_errors:
-                    logger.error(
-                        "[bg] Speechmatics job failed: "
-                        f"status={status}, message={status_message}, errors={status_errors}"
-                    )
+                logger.error(
+                    "[bg] Speechmatics job failed: "
+                    f"status={status}, message={status_message}, errors={status_errors}, payload={payload_text}"
+                )
                 raise RuntimeError(f"Speechmatics job failed with status: {status}")
             if time.time() - poll_started > poll_timeout:
                 raise TimeoutError("Speechmatics job timed out")
