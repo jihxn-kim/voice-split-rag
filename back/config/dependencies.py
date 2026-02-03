@@ -29,6 +29,10 @@ def get_assemblyai_api_key(request: Request) -> str | None:
 def get_speechmatics_api_key(request: Request) -> str | None:
     return request.app.state.client_container.speechmatics_api_key
 
+# Deepgram API Key
+def get_deepgram_api_key(request: Request) -> str | None:
+    return request.app.state.client_container.deepgram_api_key
+
 # Speechmatics API URL
 def get_speechmatics_api_url(request: Request) -> str:
     return (

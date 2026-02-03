@@ -21,6 +21,7 @@ class ClientContainer:
         self.assemblyai_api_key = None
         self.speechmatics_api_key = None
         self.speechmatics_api_url = None
+        self.deepgram_api_key = None
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -49,6 +50,11 @@ def initialize_clients() -> ClientContainer:
             "SPEECHMATICS_API_URL",
             "https://asr.api.speechmatics.com/v2",
         )
+
+    # Deepgram API 키 설정
+    deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+    if deepgram_key:
+        container.deepgram_api_key = deepgram_key
     
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")

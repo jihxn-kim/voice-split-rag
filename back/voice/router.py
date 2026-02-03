@@ -14,6 +14,7 @@ from config.dependencies import (
     get_s3_client,
     get_s3_bucket_name,
     get_speechmatics_api_key,
+    get_deepgram_api_key,
 )
 from auth.dependencies import get_current_active_user
 from models.user import User
@@ -35,6 +36,7 @@ import json
 import asyncio
 import time
 from datetime import datetime
+import re
 import requests
 
 # 로거 설정
@@ -566,6 +568,178 @@ def parse_speechmatics_results(results: list[dict]) -> tuple[list[dict], dict[st
         flush_segment()
 
     full_transcript = full_text.strip()
+    return segments, speakers, full_transcript
+
+
+SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[EMAIL]"),
+    (re.compile(r"\b0\d{1,2}-?\d{3,4}-?\d{4}\b"), "[PHONE]"),
+    (re.compile(r"\b\d{6}-?\d{7}\b"), "[RRN]"),
+    (re.compile(r"\b(?:\d{4}[- ]?){3}\d{4}\b"), "[CARD]"),
+]
+
+
+def mask_sensitive_text(text: str) -> str:
+    if not text:
+        return text
+    masked = text
+    for pattern, replacement in SENSITIVE_PATTERNS:
+        masked = pattern.sub(replacement, masked)
+    return masked
+
+
+def parse_deepgram_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
+    segments: list[dict] = []
+    speakers: dict[str, dict] = {}
+    full_transcript = ""
+
+    results = payload.get("results") or {}
+    utterances = results.get("utterances")
+
+    if not utterances:
+        channels = results.get("channels") or []
+        if channels:
+            alternatives = channels[0].get("alternatives") or []
+            if alternatives:
+                alt = alternatives[0]
+                utterances = alt.get("utterances") or []
+                full_transcript = (alt.get("transcript") or "").strip()
+
+    if utterances:
+        for utt in utterances:
+            if not isinstance(utt, dict):
+                continue
+            text = (utt.get("transcript") or utt.get("text") or "").strip()
+            if not text:
+                continue
+            speaker_id = utt.get("speaker")
+            if speaker_id is None or speaker_id == "":
+                speaker_id = utt.get("speaker_id") or "UU"
+            speaker_id = str(speaker_id)
+            start_time = float(utt.get("start") or 0.0)
+            end_time = float(utt.get("end") or start_time)
+            segments.append(
+                {
+                    "speaker_id": speaker_id,
+                    "text": text,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": end_time - start_time,
+                }
+            )
+            if speaker_id not in speakers:
+                speakers[speaker_id] = {
+                    "speaker_id": speaker_id,
+                    "text": text,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": end_time - start_time,
+                }
+            else:
+                speakers[speaker_id]["text"] = (
+                    speakers[speaker_id]["text"] + " " + text
+                ).strip()
+                speakers[speaker_id]["end_time"] = max(
+                    speakers[speaker_id]["end_time"], end_time
+                )
+                speakers[speaker_id]["duration"] = (
+                    speakers[speaker_id]["end_time"]
+                    - speakers[speaker_id]["start_time"]
+                )
+
+        if not full_transcript:
+            full_transcript = " ".join([seg["text"] for seg in segments]).strip()
+        return segments, speakers, full_transcript
+
+    # Fallback: build segments from word-level if available
+    channels = results.get("channels") or []
+    if channels:
+        alternatives = channels[0].get("alternatives") or []
+        if alternatives:
+            alt = alternatives[0]
+            words = alt.get("words") or []
+            current_speaker = None
+            current_text = ""
+            seg_start = None
+            seg_end = None
+
+            def flush_segment():
+                nonlocal current_text, seg_start, seg_end, current_speaker
+                text = current_text.strip()
+                if not text or current_speaker is None:
+                    current_text = ""
+                    seg_start = None
+                    seg_end = None
+                    return
+                start_time = float(seg_start) if seg_start is not None else 0.0
+                end_time = float(seg_end) if seg_end is not None else start_time
+                segments.append(
+                    {
+                        "speaker_id": current_speaker,
+                        "text": text,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "duration": end_time - start_time,
+                    }
+                )
+                if current_speaker not in speakers:
+                    speakers[current_speaker] = {
+                        "speaker_id": current_speaker,
+                        "text": text,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "duration": end_time - start_time,
+                    }
+                else:
+                    speakers[current_speaker]["text"] = (
+                        speakers[current_speaker]["text"] + " " + text
+                    ).strip()
+                    speakers[current_speaker]["end_time"] = max(
+                        speakers[current_speaker]["end_time"], end_time
+                    )
+                    speakers[current_speaker]["duration"] = (
+                        speakers[current_speaker]["end_time"]
+                        - speakers[current_speaker]["start_time"]
+                    )
+                current_text = ""
+                seg_start = None
+                seg_end = None
+
+            for word in words:
+                if not isinstance(word, dict):
+                    continue
+                token = (word.get("punctuated_word") or word.get("word") or "").strip()
+                if not token:
+                    continue
+                speaker_id = word.get("speaker")
+                if speaker_id is None or speaker_id == "":
+                    speaker_id = "UU"
+                speaker_id = str(speaker_id)
+                start_time = word.get("start")
+                end_time = word.get("end")
+
+                if current_speaker is None:
+                    current_speaker = speaker_id
+                    seg_start = start_time
+                    seg_end = end_time
+                elif speaker_id != current_speaker:
+                    flush_segment()
+                    current_speaker = speaker_id
+                    seg_start = start_time
+                    seg_end = end_time
+
+                current_text = append_token_text(current_text, token, None)
+                full_transcript = append_token_text(full_transcript, token, None)
+
+                if seg_start is None and start_time is not None:
+                    seg_start = start_time
+                if end_time is not None:
+                    seg_end = end_time
+
+            if current_text:
+                flush_segment()
+
+    full_transcript = full_transcript.strip()
     return segments, speakers, full_transcript
 
 
@@ -1149,6 +1323,243 @@ def run_stt_processing_background_speechmatics(
         db.close()
 
 
+def run_stt_processing_background_deepgram_nova2(
+    upload_id: int,
+    s3_key: str,
+    user_id: int,
+    client_id: int,
+    session_number: Optional[int],
+):
+    """백그라운드에서 Deepgram Nova-2 STT 및 기록 저장 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    db = SessionLocal()
+    upload = None
+    try:
+        upload = db.query(VoiceUpload).filter(
+            VoiceUpload.id == upload_id,
+            VoiceUpload.user_id == user_id,
+        ).first()
+        if not upload:
+            logger.warning(f"[bg] Upload not found for processing: upload_id={upload_id}, user_id={user_id}")
+            return
+        upload.status = "processing"
+        db.commit()
+
+        client = db.query(Client).filter(
+            Client.id == client_id,
+            Client.user_id == user_id,
+        ).first()
+        if not client:
+            logger.warning(f"[bg] Client not found or unauthorized: client_id={client_id}, user_id={user_id}")
+            upload.status = "failed"
+            upload.error_message = "Client not found or unauthorized"
+            db.commit()
+            return
+
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+
+        if not client_container.deepgram_api_key:
+            logger.error("DEEPGRAM_API_KEY not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "DEEPGRAM_API_KEY not configured"
+            db.commit()
+            return
+
+        if not client_container.s3_client:
+            logger.error("S3 client not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "S3 client not configured"
+            db.commit()
+            return
+
+        try:
+            bucket_name = get_s3_bucket_name()
+        except Exception as e:
+            logger.error(f"S3 bucket name not configured: {str(e)}")
+            raise
+
+        presigned_url = client_container.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": s3_key},
+            ExpiresIn=21600,
+        )
+
+        params = {
+            "model": "nova-2",
+            "language": "ko",
+            "diarize": "true",
+            "utterances": "true",
+            "punctuate": "true",
+            "smart_format": "false",
+            "redact": ["pii", "pci", "phi"],
+        }
+        headers = {
+            "Authorization": f"Token {client_container.deepgram_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        logger.info("[bg] Starting transcription with Deepgram Nova-2...")
+        response = requests.post(
+            "https://api.deepgram.com/v1/listen",
+            params=params,
+            headers=headers,
+            json={"url": presigned_url},
+            timeout=120,
+        )
+        if not response.ok:
+            raise RuntimeError(
+                f"Deepgram transcription failed: {response.status_code} {response.text}"
+            )
+
+        payload = response.json()
+        segments, speakers, full_transcript = parse_deepgram_results(payload)
+        if not segments:
+            raise RuntimeError("Deepgram transcript produced no segments")
+
+        speaker_ids: list[str] = []
+        for seg in segments:
+            seg_speaker_id = str(seg.get("speaker_id"))
+            if seg_speaker_id not in speaker_ids:
+                speaker_ids.append(seg_speaker_id)
+
+        labels_applied = False
+        counselor_id = None
+        if client_container.openai_client:
+            counselor_id = asyncio.run(
+                identify_counselor_speaker_id(client_container.openai_client, segments)
+            )
+
+        if counselor_id:
+            label_map = build_speaker_label_map(speaker_ids, counselor_id)
+            for seg in segments:
+                seg_speaker_id = str(seg.get("speaker_id"))
+                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
+            for speaker in speakers.values():
+                spk_id = str(speaker.get("speaker_id"))
+                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
+            labels_applied = True
+            logger.info(f"[bg] Speaker labels applied (Deepgram): counselor={counselor_id}")
+
+        for seg in segments:
+            seg_text = seg.get("text") or ""
+            seg["text"] = mask_sensitive_text(str(seg_text))
+        for speaker in speakers.values():
+            spk_text = speaker.get("text") or ""
+            speaker["text"] = mask_sensitive_text(str(spk_text))
+        full_transcript = mask_sensitive_text(full_transcript)
+
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+
+        dialogue_prefix = "" if labels_applied else "발화자 "
+        dialogue = "\n".join(
+            [f"{dialogue_prefix}{seg['speaker_id']}: {seg['text']}" for seg in segments]
+        )
+
+        total_duration = int(segments[-1]["end_time"]) if segments else 0
+
+        original_filename = os.path.basename(s3_key)
+
+        if session_number:
+            auto_title = f"{client.name} - {session_number}회기 상담 (Deepgram)"
+        else:
+            auto_title = f"{client.name} - 상담 기록 (Deepgram) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+        voice_record = VoiceRecord(
+            title=auto_title,
+            user_id=user_id,
+            client_id=client_id,
+            session_number=session_number,
+            s3_key=s3_key,
+            original_filename=original_filename,
+            total_speakers=len(speakers),
+            full_transcript=full_transcript,
+            speakers_data=sorted_speakers,
+            segments_data=segments,
+            dialogue=dialogue,
+            language_code="ko",
+            duration=total_duration,
+        )
+
+        db.add(voice_record)
+        db.commit()
+        db.refresh(voice_record)
+
+        logger.info(
+            f"[bg] Voice record saved (Deepgram): id={voice_record.id}, user_id={user_id}, client_id={client_id}"
+        )
+
+        if session_number == 1 and client_container.openai_client:
+            if client.ai_analysis_completed:
+                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+            else:
+                try:
+                    chunks = build_semantic_chunks(segments)
+                    if chunks:
+                        ensure_vector_tables(db)
+                        embeddings = asyncio.run(embed_texts(client_container.openai_client, chunks))
+                        params_list = [
+                            {
+                                "voice_record_id": voice_record.id,
+                                "client_id": client_id,
+                                "session_number": session_number,
+                                "chunk_index": idx,
+                                "content": chunk,
+                                "embedding": vector_to_pg(embedding),
+                            }
+                            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                        ]
+                        db.execute(
+                            text(
+                                """
+                                INSERT INTO voice_record_chunks
+                                (voice_record_id, client_id, session_number, chunk_index, content, embedding)
+                            VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
+                                """
+                            ),
+                            params_list,
+                        )
+                        db.commit()
+                        logger.info(
+                            f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}"
+                        )
+                    else:
+                        logger.warning(f"[bg] No chunks generated for voice_record_id={voice_record.id}")
+                except Exception as e:
+                    logger.warning(f"[bg] RAG chunking skipped due to error: {str(e)}")
+                    db.rollback()
+
+                try:
+                    logger.info(
+                        f"[bg] First session detected for client_id={client_id}, running AI analysis"
+                    )
+                    asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
+                except Exception as e:
+                    logger.warning(f"[bg] AI analysis failed: {str(e)}")
+        elif session_number and session_number > 1 and client_container.openai_client:
+            try:
+                logger.info(
+                    f"[bg] Session {session_number} detected for client_id={client_id}, generating next session goal"
+                )
+                asyncio.run(
+                    analyze_next_session_goal(db, client, voice_record.id, session_number, dialogue)
+                )
+            except Exception as e:
+                logger.warning(f"[bg] Next session goal analysis failed: {str(e)}")
+
+        upload.status = "completed"
+        upload.voice_record_id = voice_record.id
+        upload.error_message = None
+        db.commit()
+    except Exception as e:
+        logger.exception(f"[bg] process-s3-file-deepgram-nova2 failed: {str(e)}")
+        if upload:
+            upload.status = "failed"
+            upload.error_message = str(e)
+            db.commit()
+    finally:
+        db.close()
+
+
 # Pydantic 모델
 class PresignedUrlRequest(BaseModel):
     filename: str
@@ -1365,6 +1776,78 @@ async def process_s3_file_speechmatics(
     except Exception as e:
         logger.exception("process-s3-file-speechmatics failed")
         raise InternalError(f"Speechmatics STT 처리 요청 실패: {str(e)}")
+
+
+@router.post("/process-s3-file-deepgram-nova2", response_model=ProcessS3FileResponse)
+async def process_s3_file_deepgram_nova2(
+    request: ProcessS3FileRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+    api_key: str | None = Depends(get_deepgram_api_key),
+):
+    """S3에 업로드된 파일을 Deepgram Nova-2로 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    try:
+        logger.info(
+            f"/voice/process-s3-file-deepgram-nova2 called: s3_key={request.s3_key}, client_id={request.client_id}, user_id={current_user.id}"
+        )
+
+        if not request.client_id:
+            raise BadRequest("client_id is required")
+
+        client = db.query(Client).filter(
+            Client.id == request.client_id,
+            Client.user_id == current_user.id,
+        ).first()
+        if not client:
+            raise BadRequest(f"Client not found or unauthorized: client_id={request.client_id}")
+
+        if not api_key:
+            raise BadRequest("DEEPGRAM_API_KEY 환경 변수가 설정되지 않았습니다.")
+
+        if not s3_client:
+            raise InternalError("S3 클라이언트가 초기화되지 않았습니다.")
+
+        upload = VoiceUpload(
+            user_id=current_user.id,
+            client_id=request.client_id,
+            session_number=request.session_number,
+            s3_key=request.s3_key,
+            status="queued",
+        )
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        if request.language_code and request.language_code.lower() != "ko":
+            logger.info(
+                f"[deepgram-nova2] language_code overridden to ko (requested={request.language_code})"
+            )
+
+        task_id = str(upload.id)
+        background_tasks.add_task(
+            run_stt_processing_background_deepgram_nova2,
+            upload.id,
+            request.s3_key,
+            current_user.id,
+            request.client_id,
+            request.session_number,
+        )
+
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "message": "Deepgram Nova-2 STT processing started",
+                "task_id": task_id,
+            },
+        )
+    except AppException:
+        raise
+    except Exception as e:
+        logger.exception("process-s3-file-deepgram-nova2 failed")
+        raise InternalError(f"Deepgram Nova-2 STT 처리 요청 실패: {str(e)}")
 
 
 @router.post("/speaker-diarization-v2")
