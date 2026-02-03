@@ -901,7 +901,7 @@ def run_stt_processing_background_speechmatics(
                 "diarization": "speaker",
                 "speaker_diarization_config": {
                     "prefer_current_speaker": True,
-                    "speaker_sensitivity": 1,
+                    "speaker_sensitivity": 0.8,
                 },
                 "transcript_filtering_config": {"remove_disfluencies": False},
                 "audio_filtering_config": {"volume_threshold": 0},
@@ -984,6 +984,22 @@ def run_stt_processing_background_speechmatics(
         )
         transcript_response.raise_for_status()
         transcript_payload = transcript_response.json()
+        try:
+            logger.info(
+                "[bg] Speechmatics transcript payload: %s",
+                json.dumps(transcript_payload, ensure_ascii=False),
+            )
+        except Exception:
+            logger.info("[bg] Speechmatics transcript payload: %s", transcript_payload)
+        audio_events = transcript_payload.get("audio_events")
+        if audio_events is not None:
+            try:
+                logger.info(
+                    "[bg] Speechmatics audio events: %s",
+                    json.dumps(audio_events, ensure_ascii=False),
+                )
+            except Exception:
+                logger.info("[bg] Speechmatics audio events: %s", audio_events)
         results = transcript_payload.get("results") or []
 
         if not results:
