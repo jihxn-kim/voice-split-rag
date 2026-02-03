@@ -901,7 +901,7 @@ def run_stt_processing_background_speechmatics(
                 "diarization": "speaker",
                 "speaker_diarization_config": {
                     "prefer_current_speaker": False,
-                    "speaker_sensitivity": 1,
+                    "speaker_sensitivity": 0.5,
                 },
                 "transcript_filtering_config": {"remove_disfluencies": False},
                 "audio_filtering_config": {"volume_threshold": 0},
