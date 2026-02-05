@@ -111,14 +111,55 @@ button {
   background: transparent;
 }
 
+.glass-panel,
 .recent-section,
 .record-card,
 .client-card,
 .detail-card,
 .empty-state,
-.auth-card {
+.auth-card,
+.client-form,
+.edit-form,
+.client-info-card,
+.voice-records-section,
+.records-summary-btn,
+.session-boxes-container,
+.ai-analysis-section,
+.ai-info-section,
+.info-section,
+.record-item,
+.empty-records,
+.next-goal-card,
+.meta-item,
+.segment-item,
+.error-message,
+.ai-analysis-box,
+.speaker-chip {
   background: var(--surface-strong) !important;
-  backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-border) !important;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+
+.ai-analysis-section {
+  background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.9),
+      rgba(255, 255, 255, 0.7)
+    )
+    !important;
+  border-color: rgba(102, 126, 234, 0.35) !important;
+}
+
+.info-section,
+.ai-info-section,
+.segment-item {
+  border-left: 4px solid rgba(102, 126, 234, 0.55) !important;
+}
+
+.segment-item.right {
+  border-left: none !important;
+  border-right: 4px solid rgba(102, 126, 234, 0.55) !important;
 }
 
 @keyframes drift {
