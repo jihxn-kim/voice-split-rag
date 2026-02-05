@@ -35,13 +35,13 @@
 }
 
 .welcome-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--hero-gradient);
   border-radius: 20px;
   padding: 3rem;
   color: white;
   text-align: center;
   margin-bottom: 3rem;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
 }
 
 .welcome-title {
@@ -52,7 +52,7 @@
 }
 
 .highlight {
-  color: #fbbf24;
+  color: #f59e0b;
   font-weight: 800;
 }
 

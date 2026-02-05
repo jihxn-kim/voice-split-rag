@@ -84,8 +84,8 @@
 }
 
 .dropzone.dragging {
-  border-color: #667eea;
-  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--primary-ink);
+  background: var(--primary-soft);
 }
 
 .file-input {

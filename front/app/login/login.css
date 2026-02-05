@@ -48,7 +48,7 @@
   border: none;
   font-size: 1rem;
   font-weight: 600;
-  color: #9ca3af;
+  color: #64748b;
   cursor: pointer;
   transition: all 0.2s;
   border-bottom: 3px solid transparent;
@@ -56,12 +56,12 @@
 }
 
 .auth-tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: var(--primary-ink);
+  border-bottom-color: rgba(15, 23, 42, 0.6);
 }
 
 .auth-tab:hover {
-  color: #667eea;
+  color: var(--primary-ink);
 }
 
 .auth-form {

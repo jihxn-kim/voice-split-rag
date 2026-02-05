@@ -1,18 +1,20 @@
 .sidebar {
   width: 250px;
   height: 100vh;
-  background: white;
-  border-right: 1px solid #e5e7eb;
+  background: var(--surface-strong);
+  border-right: 1px solid var(--surface-border);
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: 0;
+  box-shadow: 8px 0 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
 }
 
 .sidebar-header {
   padding: 2rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--surface-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,26 +41,28 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 1rem;
-  color: #6b7280;
+  color: #475569;
   text-align: left;
   width: 100%;
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--primary-ink);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: rgba(15, 23, 42, 0.12);
+  color: var(--primary-ink);
   font-weight: 600;
+  border-color: rgba(15, 23, 42, 0.18);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
 }
 
 .nav-icon {
@@ -71,15 +75,15 @@
 
 .sidebar-footer {
   padding: 1rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--surface-border);
 }
 
 .logout-button {
   width: 100%;
   padding: 0.75rem;
-  border: none;
-  background: #ef4444;
-  color: white;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-text);
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 600;
@@ -92,7 +96,7 @@
 }
 
 .logout-button:hover {
-  background: #dc2626;
+  background: var(--danger-hover-bg);
   transform: translateY(-1px);
 }
 
@@ -102,7 +106,7 @@
     height: auto;
     position: relative;
     border-right: none;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--surface-border);
   }
 
   .sidebar-header {
