@@ -4,16 +4,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: transparent;
   padding: 2rem 1rem;
   position: relative;
   overflow: hidden;
 }
 
 .auth-card {
-  background: white;
+  background: var(--surface-strong);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-soft);
   padding: 3rem 2.5rem;
   max-width: 450px;
   width: 100%;

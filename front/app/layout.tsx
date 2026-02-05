@@ -13,7 +13,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <div className="app-shell">
+          <div className="bg-orb orb-amber" aria-hidden="true" />
+          <div className="bg-orb orb-emerald" aria-hidden="true" />
+          <div className="bg-orb orb-slate" aria-hidden="true" />
+          <div className="app-content">{children}</div>
+        </div>
+      </body>
     </html>
   )
 }

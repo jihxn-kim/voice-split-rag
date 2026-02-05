@@ -70,8 +70,8 @@
 }
 
 .dropzone {
-  background: white;
-  border: 3px dashed #d1d5db;
+  background: var(--surface-strong);
+  border: 3px dashed rgba(148, 163, 184, 0.6);
   border-radius: 16px;
   padding: 3rem;
   cursor: pointer;
@@ -80,11 +80,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(12px);
 }
 
 .dropzone.dragging {
   border-color: #667eea;
-  background: #f0f4ff;
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .file-input {
