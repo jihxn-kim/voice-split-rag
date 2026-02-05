@@ -697,8 +697,8 @@ def parse_deepgram_results(payload: dict) -> tuple[list[dict], dict[str, dict], 
                 )
 
         if not full_transcript:
-    full_transcript = " ".join([seg["text"] for seg in segments]).strip()
-    return segments, speakers, full_transcript
+            full_transcript = " ".join([seg["text"] for seg in segments]).strip()
+        return segments, speakers, full_transcript
 
 
 def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
