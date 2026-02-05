@@ -22,6 +22,8 @@ class ClientContainer:
         self.speechmatics_api_key = None
         self.speechmatics_api_url = None
         self.deepgram_api_key = None
+        self.vito_client_id = None
+        self.vito_client_secret = None
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -55,6 +57,13 @@ def initialize_clients() -> ClientContainer:
     deepgram_key = os.getenv("DEEPGRAM_API_KEY")
     if deepgram_key:
         container.deepgram_api_key = deepgram_key
+
+    # VITO (RTZR) API 설정
+    vito_client_id = os.getenv("VITO_CLIENT_ID")
+    vito_client_secret = os.getenv("VITO_CLIENT_SECRET")
+    if vito_client_id and vito_client_secret:
+        container.vito_client_id = vito_client_id
+        container.vito_client_secret = vito_client_secret
     
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")

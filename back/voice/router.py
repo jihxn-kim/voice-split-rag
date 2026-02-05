@@ -15,6 +15,8 @@ from config.dependencies import (
     get_s3_bucket_name,
     get_speechmatics_api_key,
     get_deepgram_api_key,
+    get_vito_client_id,
+    get_vito_client_secret,
 )
 from auth.dependencies import get_current_active_user
 from models.user import User
@@ -695,8 +697,73 @@ def parse_deepgram_results(payload: dict) -> tuple[list[dict], dict[str, dict], 
                 )
 
         if not full_transcript:
-            full_transcript = " ".join([seg["text"] for seg in segments]).strip()
-        return segments, speakers, full_transcript
+    full_transcript = " ".join([seg["text"] for seg in segments]).strip()
+    return segments, speakers, full_transcript
+
+
+def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
+    segments: list[dict] = []
+    speakers: dict[str, dict] = {}
+    results = payload.get("results") or {}
+    utterances = results.get("utterances") or []
+    full_transcript = (results.get("text") or "").strip()
+
+    for utt in utterances:
+        if not isinstance(utt, dict):
+            continue
+        text = (utt.get("msg") or utt.get("text") or "").strip()
+        if not text:
+            continue
+        raw_speaker = utt.get("spk")
+        if raw_speaker is None or raw_speaker == "":
+            raw_speaker = "??"
+        speaker_id = str(raw_speaker)
+        start_ms = utt.get("start_at") or utt.get("start") or 0
+        duration_ms = utt.get("duration") or 0
+        try:
+            start_ms = float(start_ms)
+        except Exception:
+            start_ms = 0.0
+        try:
+            duration_ms = float(duration_ms)
+        except Exception:
+            duration_ms = 0.0
+        start_time = start_ms / 1000.0
+        end_time = (start_ms + duration_ms) / 1000.0
+
+        segments.append(
+            {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+        )
+        if speaker_id not in speakers:
+            speakers[speaker_id] = {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+        else:
+            speakers[speaker_id]["text"] = (
+                speakers[speaker_id]["text"] + " " + text
+            ).strip()
+            speakers[speaker_id]["end_time"] = max(
+                speakers[speaker_id]["end_time"], end_time
+            )
+            speakers[speaker_id]["duration"] = (
+                speakers[speaker_id]["end_time"]
+                - speakers[speaker_id]["start_time"]
+            )
+
+    if not full_transcript and segments:
+        full_transcript = " ".join([seg["text"] for seg in segments]).strip()
+
+    return segments, speakers, full_transcript
 
     # Fallback: build segments from word-level if available
     channels = results.get("channels") or []
@@ -1610,6 +1677,318 @@ def run_stt_processing_background_deepgram_nova2(
         db.close()
 
 
+def get_vito_access_token(client_id: str, client_secret: str) -> str:
+    response = requests.post(
+        "https://openapi.vito.ai/v1/authenticate",
+        data={"client_id": client_id, "client_secret": client_secret},
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    token = payload.get("access_token")
+    if not token:
+        raise RuntimeError("VITO access_token missing from response")
+    return token
+
+
+def run_stt_processing_background_vito(
+    upload_id: int,
+    s3_key: str,
+    user_id: int,
+    client_id: int,
+    session_number: Optional[int],
+):
+    """백그라운드에서 VITO STT 및 기록 저장 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    db = SessionLocal()
+    upload = None
+    temp_file_path: str | None = None
+    try:
+        upload = db.query(VoiceUpload).filter(
+            VoiceUpload.id == upload_id,
+            VoiceUpload.user_id == user_id,
+        ).first()
+        if not upload:
+            logger.warning(f"[bg] Upload not found for processing: upload_id={upload_id}, user_id={user_id}")
+            return
+        upload.status = "processing"
+        db.commit()
+
+        client = db.query(Client).filter(
+            Client.id == client_id,
+            Client.user_id == user_id,
+        ).first()
+        if not client:
+            logger.warning(f"[bg] Client not found or unauthorized: client_id={client_id}, user_id={user_id}")
+            upload.status = "failed"
+            upload.error_message = "Client not found or unauthorized"
+            db.commit()
+            return
+
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+
+        if not client_container.vito_client_id or not client_container.vito_client_secret:
+            logger.error("VITO_CLIENT_ID/SECRET not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "VITO_CLIENT_ID/SECRET not configured"
+            db.commit()
+            return
+
+        if not client_container.s3_client:
+            logger.error("S3 client not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "S3 client not configured"
+            db.commit()
+            return
+
+        try:
+            bucket_name = get_s3_bucket_name()
+        except Exception as e:
+            logger.error(f"S3 bucket name not configured: {str(e)}")
+            raise
+
+        presigned_url = client_container.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": s3_key},
+            ExpiresIn=21600,
+        )
+
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
+        temp_file_path = temp_file.name
+        with requests.get(presigned_url, stream=True, timeout=60) as download_resp:
+            download_resp.raise_for_status()
+            for chunk in download_resp.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    temp_file.write(chunk)
+        temp_file.close()
+
+        token = get_vito_access_token(
+            client_container.vito_client_id,
+            client_container.vito_client_secret,
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+
+        config = {
+            "model_name": "sommers",
+            "language": "ko",
+            "use_diarization": True,
+            "diarization": {"spk_count": 0},
+            "use_itn": True,
+            "use_disfluency_filter": False,
+            "use_profanity_filter": False,
+            "use_paragraph_splitter": False,
+        }
+
+        logger.info("[bg] Starting transcription with VITO...")
+        with open(temp_file_path, "rb") as audio_file:
+            files = {
+                "file": (os.path.basename(s3_key), audio_file, "application/octet-stream"),
+                "config": (None, json.dumps(config), "application/json"),
+            }
+            create_response = requests.post(
+                "https://openapi.vito.ai/v1/transcribe",
+                headers=headers,
+                files=files,
+                timeout=120,
+            )
+        if not create_response.ok:
+            raise RuntimeError(
+                f"VITO transcription start failed: {create_response.status_code} {create_response.text}"
+            )
+        create_payload = create_response.json()
+        job_id = create_payload.get("id")
+        if not job_id:
+            raise RuntimeError("VITO transcription id missing from response")
+
+        poll_started = time.time()
+        poll_timeout = 21600
+        poll_interval = 10
+
+        status_payload: dict = {}
+        while True:
+            status_response = requests.get(
+                f"https://openapi.vito.ai/v1/transcribe/{job_id}",
+                headers=headers,
+                timeout=30,
+            )
+            if status_response.status_code == 401:
+                token = get_vito_access_token(
+                    client_container.vito_client_id,
+                    client_container.vito_client_secret,
+                )
+                headers = {"Authorization": f"Bearer {token}"}
+                status_response = requests.get(
+                    f"https://openapi.vito.ai/v1/transcribe/{job_id}",
+                    headers=headers,
+                    timeout=30,
+                )
+            status_response.raise_for_status()
+            status_payload = status_response.json()
+            status = str(status_payload.get("status") or "").lower()
+
+            if status in {"completed", "done", "success"}:
+                break
+            if status in {"failed", "error"}:
+                raise RuntimeError(f"VITO job failed with status: {status}")
+            if time.time() - poll_started > poll_timeout:
+                raise TimeoutError("VITO job timed out")
+
+            time.sleep(poll_interval)
+
+        segments, speakers, full_transcript = parse_vito_results(status_payload)
+        if not segments:
+            raise RuntimeError("VITO transcript produced no segments")
+
+        speaker_ids: list[str] = []
+        for seg in segments:
+            seg_speaker_id = str(seg.get("speaker_id"))
+            if seg_speaker_id not in speaker_ids:
+                speaker_ids.append(seg_speaker_id)
+
+        labels_applied = False
+        counselor_id = None
+        if client_container.openai_client:
+            counselor_id = asyncio.run(
+                identify_counselor_speaker_id(client_container.openai_client, segments)
+            )
+
+        if counselor_id:
+            label_map = build_speaker_label_map(speaker_ids, counselor_id)
+            for seg in segments:
+                seg_speaker_id = str(seg.get("speaker_id"))
+                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
+            for speaker in speakers.values():
+                spk_id = str(speaker.get("speaker_id"))
+                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
+            labels_applied = True
+            logger.info(f"[bg] Speaker labels applied (VITO): counselor={counselor_id}")
+
+        for seg in segments:
+            seg_text = seg.get("text") or ""
+            seg["text"] = mask_sensitive_text(str(seg_text))
+        for speaker in speakers.values():
+            spk_text = speaker.get("text") or ""
+            speaker["text"] = mask_sensitive_text(str(spk_text))
+        full_transcript = mask_sensitive_text(full_transcript)
+
+        merged_segments = merge_segments(segments)
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+
+        dialogue_prefix = "" if labels_applied else "발화자 "
+        dialogue = "\n".join(
+            [f"{dialogue_prefix}{seg['speaker_id']}: {seg['text']}" for seg in segments]
+        )
+
+        total_duration = int(segments[-1]["end_time"]) if segments else 0
+        original_filename = os.path.basename(s3_key)
+
+        if session_number:
+            auto_title = f"{client.name} - {session_number}회기 상담 (VITO)"
+        else:
+            auto_title = f"{client.name} - 상담 기록 (VITO) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+        voice_record = VoiceRecord(
+            title=auto_title,
+            user_id=user_id,
+            client_id=client_id,
+            session_number=session_number,
+            s3_key=s3_key,
+            original_filename=original_filename,
+            total_speakers=len(speakers),
+            full_transcript=full_transcript,
+            speakers_data=sorted_speakers,
+            segments_data=segments,
+            segments_merged_data=merged_segments,
+            dialogue=dialogue,
+            language_code="ko",
+            duration=total_duration,
+        )
+
+        db.add(voice_record)
+        db.commit()
+        db.refresh(voice_record)
+
+        logger.info(
+            f"[bg] Voice record saved (VITO): id={voice_record.id}, user_id={user_id}, client_id={client_id}"
+        )
+
+        if session_number == 1 and client_container.openai_client:
+            if client.ai_analysis_completed:
+                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+            else:
+                try:
+                    chunks = build_semantic_chunks(segments)
+                    if chunks:
+                        ensure_vector_tables(db)
+                        embeddings = asyncio.run(embed_texts(client_container.openai_client, chunks))
+                        params_list = [
+                            {
+                                "voice_record_id": voice_record.id,
+                                "client_id": client_id,
+                                "session_number": session_number,
+                                "chunk_index": idx,
+                                "content": chunk,
+                                "embedding": vector_to_pg(embedding),
+                            }
+                            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                        ]
+                        db.execute(
+                            text(
+                                """
+                                INSERT INTO voice_record_chunks
+                                (voice_record_id, client_id, session_number, chunk_index, content, embedding)
+                            VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
+                                """
+                            ),
+                            params_list,
+                        )
+                        db.commit()
+                        logger.info(
+                            f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}"
+                        )
+                    else:
+                        logger.warning(f"[bg] No chunks generated for voice_record_id={voice_record.id}")
+                except Exception as e:
+                    logger.warning(f"[bg] RAG chunking skipped due to error: {str(e)}")
+                    db.rollback()
+
+                try:
+                    logger.info(
+                        f"[bg] First session detected for client_id={client_id}, running AI analysis"
+                    )
+                    asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
+                except Exception as e:
+                    logger.warning(f"[bg] AI analysis failed: {str(e)}")
+        elif session_number and session_number > 1 and client_container.openai_client:
+            try:
+                logger.info(
+                    f"[bg] Session {session_number} detected for client_id={client_id}, generating next session goal"
+                )
+                asyncio.run(
+                    analyze_next_session_goal(db, client, voice_record.id, session_number, dialogue)
+                )
+            except Exception as e:
+                logger.warning(f"[bg] Next session goal analysis failed: {str(e)}")
+
+        upload.status = "completed"
+        upload.voice_record_id = voice_record.id
+        upload.error_message = None
+        db.commit()
+    except Exception as e:
+        logger.exception(f"[bg] process-s3-file-vito failed: {str(e)}")
+        if upload:
+            upload.status = "failed"
+            upload.error_message = str(e)
+            db.commit()
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"[bg] Temporary file deleted: {temp_file_path}")
+            except Exception:
+                logger.exception("[bg] Failed to delete temporary file")
+        db.close()
+
 # Pydantic 모델
 class PresignedUrlRequest(BaseModel):
     filename: str
@@ -1898,6 +2277,79 @@ async def process_s3_file_deepgram_nova2(
     except Exception as e:
         logger.exception("process-s3-file-deepgram-nova2 failed")
         raise InternalError(f"Deepgram Nova-2 STT 처리 요청 실패: {str(e)}")
+
+
+@router.post("/process-s3-file-vito", response_model=ProcessS3FileResponse)
+async def process_s3_file_vito(
+    request: ProcessS3FileRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+    client_id: str | None = Depends(get_vito_client_id),
+    client_secret: str | None = Depends(get_vito_client_secret),
+):
+    """S3에 업로드된 파일을 VITO로 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    try:
+        logger.info(
+            f"/voice/process-s3-file-vito called: s3_key={request.s3_key}, client_id={request.client_id}, user_id={current_user.id}"
+        )
+
+        if not request.client_id:
+            raise BadRequest("client_id is required")
+
+        client = db.query(Client).filter(
+            Client.id == request.client_id,
+            Client.user_id == current_user.id,
+        ).first()
+        if not client:
+            raise BadRequest(f"Client not found or unauthorized: client_id={request.client_id}")
+
+        if not client_id or not client_secret:
+            raise BadRequest("VITO_CLIENT_ID/SECRET 환경 변수가 설정되지 않았습니다.")
+
+        if not s3_client:
+            raise InternalError("S3 클라이언트가 초기화되지 않았습니다.")
+
+        upload = VoiceUpload(
+            user_id=current_user.id,
+            client_id=request.client_id,
+            session_number=request.session_number,
+            s3_key=request.s3_key,
+            status="queued",
+        )
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        if request.language_code and request.language_code.lower() != "ko":
+            logger.info(
+                f"[vito] language_code overridden to ko (requested={request.language_code})"
+            )
+
+        task_id = str(upload.id)
+        background_tasks.add_task(
+            run_stt_processing_background_vito,
+            upload.id,
+            request.s3_key,
+            current_user.id,
+            request.client_id,
+            request.session_number,
+        )
+
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "message": "VITO STT processing started",
+                "task_id": task_id,
+            },
+        )
+    except AppException:
+        raise
+    except Exception as e:
+        logger.exception("process-s3-file-vito failed")
+        raise InternalError(f"VITO STT 처리 요청 실패: {str(e)}")
 
 
 @router.post("/speaker-diarization-v2")

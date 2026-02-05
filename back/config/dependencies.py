@@ -33,6 +33,13 @@ def get_speechmatics_api_key(request: Request) -> str | None:
 def get_deepgram_api_key(request: Request) -> str | None:
     return request.app.state.client_container.deepgram_api_key
 
+# VITO (RTZR) Client Credentials
+def get_vito_client_id(request: Request) -> str | None:
+    return request.app.state.client_container.vito_client_id
+
+def get_vito_client_secret(request: Request) -> str | None:
+    return request.app.state.client_container.vito_client_secret
+
 # Speechmatics API URL
 def get_speechmatics_api_url(request: Request) -> str:
     return (
