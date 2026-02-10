@@ -923,7 +923,6 @@ def run_stt_processing_background_voxtral(
     """백그라운드에서 Voxtral Transcribe 2 STT 및 기록 저장 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
     db = SessionLocal()
     upload = None
-    temp_file_path: str | None = None
     try:
         upload = db.query(VoiceUpload).filter(
             VoiceUpload.id == upload_id,
@@ -975,55 +974,26 @@ def run_stt_processing_background_voxtral(
             ExpiresIn=21600,
         )
 
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
-        temp_file_path = temp_file.name
-        with requests.get(presigned_url, stream=True, timeout=60) as download_resp:
-            download_resp.raise_for_status()
-            for chunk in download_resp.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    temp_file.write(chunk)
-        temp_file.close()
+        logger.info(f"[bg] Starting transcription with Voxtral Transcribe 2 via file_url, s3_key={s3_key}")
 
-        # 파일 크기 확인 로그
-        file_size = os.path.getsize(temp_file_path)
-        logger.info(f"[bg] Starting transcription with Voxtral Transcribe 2... file_size={file_size} bytes ({file_size / 1024 / 1024:.1f} MB)")
-
-        # MIME 타입 결정
-        ext = os.path.splitext(s3_key)[1].lower()
-        mime_map = {
-            ".mp3": "audio/mpeg",
-            ".wav": "audio/wav",
-            ".m4a": "audio/mp4",
-            ".flac": "audio/flac",
-            ".ogg": "audio/ogg",
-            ".aac": "audio/aac",
-            ".wma": "audio/x-ms-wma",
-            ".webm": "audio/webm",
-        }
-        content_type = mime_map.get(ext, "audio/mpeg")
-        logger.info(f"[bg] File extension={ext}, content_type={content_type}")
-
-        # Mistral API 호출 (multipart/form-data)
+        # Mistral API 호출 — file_url로 S3 presigned URL 직접 전달
         mistral_headers = {
             "Authorization": f"Bearer {client_container.mistral_api_key}",
+            "Content-Type": "application/json",
         }
-        with open(temp_file_path, "rb") as audio_file:
-            files = {
-                "file": (os.path.basename(s3_key), audio_file, content_type),
-            }
-            data = {
-                "model": "voxtral-mini-2602",
-                "diarize": "true",
-                "timestamp_granularities": "segment",
-                "response_format": "verbose_json",
-            }
-            mistral_response = requests.post(
-                "https://api.mistral.ai/v1/audio/transcriptions",
-                headers=mistral_headers,
-                files=files,
-                data=data,
-                timeout=600,
-            )
+        mistral_body = {
+            "model": "voxtral-mini-2602",
+            "file_url": presigned_url,
+            "diarize": True,
+            "response_format": "verbose_json",
+        }
+        logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, response_format=verbose_json")
+        mistral_response = requests.post(
+            "https://api.mistral.ai/v1/audio/transcriptions",
+            headers=mistral_headers,
+            json=mistral_body,
+            timeout=600,
+        )
 
         if not mistral_response.ok:
             logger.error(
@@ -1194,12 +1164,6 @@ def run_stt_processing_background_voxtral(
             upload.error_message = str(e)
             db.commit()
     finally:
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-                logger.info(f"[bg] Temporary file deleted: {temp_file_path}")
-            except Exception:
-                logger.exception("[bg] Failed to delete temporary file")
         db.close()
 
 
