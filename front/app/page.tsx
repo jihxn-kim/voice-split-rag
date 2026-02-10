@@ -1,16 +1,27 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, ArrowRight, Clock } from "lucide-react";
+import { Mic, ChevronLeft, ChevronRight, Plus, X, Trash2 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import "./page.css";
 
-interface VoiceRecord {
+interface Appointment {
   id: number;
-  title: string;
+  user_id: number;
+  client_id: number;
+  client_name: string;
+  session_number: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  memo: string | null;
   created_at: string;
-  total_speakers: number;
+}
+
+interface ClientItem {
+  id: number;
+  name: string;
 }
 
 interface UserInfo {
@@ -19,16 +30,54 @@ interface UserInfo {
   email: string;
 }
 
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getCalendarDays(year: number, month: number) {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  return cells;
+}
+
+function formatTime(t: string) {
+  return t.slice(0, 5); // "HH:MM:SS" -> "HH:MM"
+}
+
+function getDayOfWeek(dateStr: string) {
+  const d = new Date(dateStr);
+  return DAY_LABELS[d.getDay()];
+}
+
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [recentRecords, setRecentRecords] = useState<VoiceRecord[]>([]);
-  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
 
-  // 사용자 정보 가져오기
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [presetDate, setPresetDate] = useState<string>('');
+  const [clients, setClients] = useState<ClientItem[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+
+  // Modal form state
+  const [formClientId, setFormClientId] = useState<number | ''>('');
+  const [formSessionNumber, setFormSessionNumber] = useState<number | ''>('');
+  const [formDate, setFormDate] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
+  const [formMemo, setFormMemo] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getToken = () => localStorage.getItem('access_token');
+
+  // Auth check
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
+    const token = getToken();
     if (!token) {
       router.push('/login');
       return;
@@ -37,11 +86,8 @@ export default function Home() {
     const fetchUserInfo = async () => {
       try {
         const res = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-
         if (!res.ok) {
           if (res.status === 401) {
             localStorage.removeItem('access_token');
@@ -49,7 +95,6 @@ export default function Home() {
           }
           return;
         }
-
         const data = await res.json();
         setUserInfo(data);
         setIsAuthenticated(true);
@@ -61,60 +106,162 @@ export default function Home() {
     fetchUserInfo();
   }, [router]);
 
-  // 최근 상담 기록 가져오기
+  // Fetch appointments for current month
+  const fetchAppointments = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    setIsLoadingAppointments(true);
+    try {
+      const res = await fetch(
+        `/api/appointments?year=${currentYear}&month=${currentMonth}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setAppointments(data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+    } finally {
+      setIsLoadingAppointments(false);
+    }
+  }, [currentYear, currentMonth]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
+    fetchAppointments();
+  }, [isAuthenticated, fetchAppointments]);
 
-    const fetchRecentRecords = async () => {
-      setIsLoadingRecords(true);
+  // Fetch clients for the modal dropdown
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = getToken();
+    if (!token) return;
+
+    const fetchClients = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await fetch('/api/voice/records', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const res = await fetch('/api/clients', {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-
         if (res.ok) {
           const data = await res.json();
-          // data가 { records: [...], total: N } 형태
-          const recordsList = data.records || data;
-          setRecentRecords(Array.isArray(recordsList) ? recordsList.slice(0, 5) : []);
+          setClients(
+            (data.clients || []).map((c: any) => ({ id: c.id, name: c.name }))
+          );
         }
       } catch (error) {
-        console.error('Failed to fetch recent records:', error);
-      } finally {
-        setIsLoadingRecords(false);
+        console.error('Failed to fetch clients:', error);
       }
     };
 
-    fetchRecentRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchClients();
   }, [isAuthenticated]);
 
-  const handleUploadClick = () => {
-    router.push('/upload');
+  // Month navigation
+  const goToPrevMonth = () => {
+    if (currentMonth === 1) {
+      setCurrentYear(currentYear - 1);
+      setCurrentMonth(12);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+    setSelectedDate(null);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return '방금 전';
-    if (diffMins < 60) return `${diffMins}분 전`;
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    if (diffDays < 7) return `${diffDays}일 전`;
-    
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+  const goToNextMonth = () => {
+    if (currentMonth === 12) {
+      setCurrentYear(currentYear + 1);
+      setCurrentMonth(1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+    setSelectedDate(null);
   };
+
+  // Get appointments for a specific day
+  const getAppointmentsForDay = (day: number) => {
+    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return appointments.filter((a) => a.date === dateStr);
+  };
+
+  // Date cell click
+  const handleDateClick = (day: number) => {
+    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setSelectedDate(selectedDate === dateStr ? null : dateStr);
+  };
+
+  // Open add modal
+  const openAddModal = (dateOverride?: string) => {
+    const d = dateOverride || '';
+    setPresetDate(d);
+    setFormDate(d);
+    setFormClientId('');
+    setFormSessionNumber('');
+    setFormStartTime('');
+    setFormEndTime('');
+    setFormMemo('');
+    setShowAddModal(true);
+  };
+
+  // Submit new appointment
+  const handleSubmit = async () => {
+    if (!formClientId || !formSessionNumber || !formDate || !formStartTime || !formEndTime) return;
+    setIsSubmitting(true);
+    try {
+      const token = getToken();
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: formClientId,
+          session_number: formSessionNumber,
+          date: formDate,
+          start_time: formStartTime + ':00',
+          end_time: formEndTime + ':00',
+          memo: formMemo || null,
+        }),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Failed to create appointment:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Delete appointment
+  const handleDelete = async (id: number) => {
+    const token = getToken();
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok || res.status === 204) {
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Failed to delete appointment:', error);
+    }
+  };
+
+  const calendarDays = getCalendarDays(currentYear, currentMonth);
+  const selectedDayAppointments = selectedDate
+    ? appointments
+        .filter((a) => a.date === selectedDate)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
+    : [];
+
+  const todayStr = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  })();
 
   if (!isAuthenticated || !userInfo) {
     return (
@@ -136,51 +283,209 @@ export default function Home() {
           <p className="welcome-subtitle">
             오늘도 따뜻한 상담이 되시길 바랍니다
           </p>
-          <button className="upload-btn-large" onClick={handleUploadClick}>
+          <button className="upload-btn-large" onClick={() => router.push('/upload')}>
             <Mic size={20} /> 녹음 파일 업로드하기
           </button>
         </div>
 
-        <div className="recent-section">
-          <div className="section-header">
-            <h2 className="section-title">지난 상담 기록</h2>
-            <button
-              className="view-all-btn"
-              onClick={() => router.push('/history')}
-            >
-              전체 보기 →
+        <div className="calendar-section">
+          <div className="calendar-header">
+            <div className="calendar-nav">
+              <button className="nav-btn" onClick={goToPrevMonth}>
+                <ChevronLeft size={20} />
+              </button>
+              <h2 className="calendar-title">{currentYear}년 {currentMonth}월</h2>
+              <button className="nav-btn" onClick={goToNextMonth}>
+                <ChevronRight size={20} />
+              </button>
+            </div>
+            <button className="add-schedule-btn" onClick={() => openAddModal()}>
+              <Plus size={16} /> 일정 등록
             </button>
           </div>
 
-          {isLoadingRecords ? (
+          {isLoadingAppointments ? (
             <div className="loading-records">
               <div className="spinner-small" />
-              <p>기록을 불러오는 중...</p>
-            </div>
-          ) : recentRecords.length === 0 ? (
-            <div className="empty-records">
-              <p className="empty-text">아직 상담 기록이 없습니다.</p>
-              <p className="empty-subtext">첫 번째 상담을 업로드해보세요!</p>
+              <p>일정을 불러오는 중...</p>
             </div>
           ) : (
-            <div className="records-grid">
-              {recentRecords.map((record) => (
-                <div
-                  key={record.id}
-                  className="record-card"
-                  onClick={() => router.push(`/history/${record.id}`)}
-                >
-                  <div className="record-card-header">
-                    <h3 className="record-card-title">{record.title}</h3>
-                    <span className="record-badge">{record.total_speakers}명</span>
-                  </div>
-                  <p className="record-date">{formatDate(record.created_at)}</p>
+            <div className="calendar-grid">
+              {DAY_LABELS.map((label) => (
+                <div key={label} className={`calendar-day-label ${label === '일' ? 'sunday' : ''} ${label === '토' ? 'saturday' : ''}`}>
+                  {label}
                 </div>
               ))}
+              {calendarDays.map((day, idx) => {
+                if (day === null) {
+                  return <div key={`empty-${idx}`} className="calendar-cell empty" />;
+                }
+                const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayAppointments = getAppointmentsForDay(day);
+                const isSelected = selectedDate === dateStr;
+                const isToday = dateStr === todayStr;
+                const dayOfWeek = new Date(currentYear, currentMonth - 1, day).getDay();
+
+                return (
+                  <div
+                    key={day}
+                    className={`calendar-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${dayOfWeek === 0 ? 'sunday' : ''} ${dayOfWeek === 6 ? 'saturday' : ''}`}
+                    onClick={() => handleDateClick(day)}
+                  >
+                    <span className="cell-day">{day}</span>
+                    {dayAppointments.length > 0 && (
+                      <div className="appointment-dots">
+                        {dayAppointments.slice(0, 3).map((appt) => (
+                          <span key={appt.id} className="appointment-dot" title={appt.client_name}>
+                            {appt.client_name}
+                          </span>
+                        ))}
+                        {dayAppointments.length > 3 && (
+                          <span className="appointment-more">+{dayAppointments.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {selectedDate && (
+            <div className="day-detail">
+              <div className="day-detail-header">
+                <h3 className="day-detail-title">
+                  {parseInt(selectedDate.split('-')[1])}월 {parseInt(selectedDate.split('-')[2])}일 ({getDayOfWeek(selectedDate)}) 일정
+                </h3>
+                <button
+                  className="add-day-btn"
+                  onClick={() => openAddModal(selectedDate)}
+                >
+                  <Plus size={14} /> 이 날짜에 일정 추가
+                </button>
+              </div>
+
+              {selectedDayAppointments.length === 0 ? (
+                <p className="no-appointments">등록된 일정이 없습니다.</p>
+              ) : (
+                <div className="timeline">
+                  {selectedDayAppointments.map((appt) => (
+                    <div key={appt.id} className="timeline-item">
+                      <div className="timeline-time">
+                        {formatTime(appt.start_time)} - {formatTime(appt.end_time)}
+                      </div>
+                      <div className="timeline-content">
+                        <span className="timeline-client">{appt.client_name}</span>
+                        <span className="timeline-session">{appt.session_number}회차</span>
+                        {appt.memo && <span className="timeline-memo">{appt.memo}</span>}
+                      </div>
+                      <button
+                        className="timeline-delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(appt.id);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="add-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>일정 등록</h3>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label>내담자</label>
+                <select
+                  value={formClientId}
+                  onChange={(e) => setFormClientId(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">선택해주세요</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>회차</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="회차 입력"
+                  value={formSessionNumber}
+                  onChange={(e) => setFormSessionNumber(e.target.value ? Number(e.target.value) : '')}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>날짜</label>
+                <input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>시작 시간</label>
+                  <input
+                    type="time"
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>종료 시간</label>
+                  <input
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>메모 (선택)</label>
+                <textarea
+                  placeholder="메모를 입력하세요"
+                  value={formMemo}
+                  onChange={(e) => setFormMemo(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="modal-cancel" onClick={() => setShowAddModal(false)}>
+                취소
+              </button>
+              <button
+                className="modal-submit"
+                onClick={handleSubmit}
+                disabled={isSubmitting || !formClientId || !formSessionNumber || !formDate || !formStartTime || !formEndTime}
+              >
+                {isSubmitting ? '등록 중...' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

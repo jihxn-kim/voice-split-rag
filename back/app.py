@@ -118,8 +118,9 @@ Instrumentator().instrument(app).expose(app)
 # 라우터 등록
 from voice.history_router import router as history_router
 from client.router import router as client_router
+from appointment.router import router as appointment_router
 
-routers = [auth_router, voice_router, history_router, client_router]
+routers = [auth_router, voice_router, history_router, client_router, appointment_router]
 
 for router in routers:
     app.include_router(router)

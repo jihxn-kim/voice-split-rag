@@ -40,6 +40,7 @@ class Client(Base):
     # 관계
     counselor = relationship("User", back_populates="clients")
     voice_records = relationship("VoiceRecord", back_populates="client", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="client", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Client(id={self.id}, name={self.name}, counselor_id={self.user_id})>"

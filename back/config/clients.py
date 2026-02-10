@@ -24,6 +24,7 @@ class ClientContainer:
         self.deepgram_api_key = None
         self.vito_client_id = None
         self.vito_client_secret = None
+        self.mistral_api_key = None
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -65,6 +66,11 @@ def initialize_clients() -> ClientContainer:
         container.vito_client_id = vito_client_id
         container.vito_client_secret = vito_client_secret
     
+    # Mistral API 키 설정
+    mistral_key = os.getenv("MISTRAL_API_KEY")
+    if mistral_key:
+        container.mistral_api_key = mistral_key
+
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")

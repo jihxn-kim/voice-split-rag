@@ -40,6 +40,10 @@ def get_vito_client_id(request: Request) -> str | None:
 def get_vito_client_secret(request: Request) -> str | None:
     return request.app.state.client_container.vito_client_secret
 
+# Mistral API Key
+def get_mistral_api_key(request: Request) -> str | None:
+    return request.app.state.client_container.mistral_api_key
+
 # Speechmatics API URL
 def get_speechmatics_api_url(request: Request) -> str:
     return (

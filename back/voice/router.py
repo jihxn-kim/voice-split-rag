@@ -17,6 +17,7 @@ from config.dependencies import (
     get_deepgram_api_key,
     get_vito_client_id,
     get_vito_client_secret,
+    get_mistral_api_key,
 )
 from auth.dependencies import get_current_active_user
 from models.user import User
@@ -855,6 +856,318 @@ def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]
 
     full_transcript = full_transcript.strip()
     return segments, speakers, full_transcript
+
+
+def parse_voxtral_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
+    """Mistral Voxtral Transcribe 2 응답을 파싱하여 segments, speakers, full_transcript 반환"""
+    segments: list[dict] = []
+    speakers: dict[str, dict] = {}
+    full_transcript = (payload.get("text") or "").strip()
+
+    response_segments = payload.get("segments") or []
+    for seg in response_segments:
+        if not isinstance(seg, dict):
+            continue
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        raw_speaker = seg.get("speaker")
+        if raw_speaker is None or raw_speaker == "":
+            raw_speaker = "0"
+        speaker_id = str(raw_speaker)
+        start_time = float(seg.get("start") or 0)
+        end_time = float(seg.get("end") or 0)
+
+        segments.append(
+            {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+        )
+        if speaker_id not in speakers:
+            speakers[speaker_id] = {
+                "speaker_id": speaker_id,
+                "text": text,
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration": end_time - start_time,
+            }
+        else:
+            speakers[speaker_id]["text"] = (
+                speakers[speaker_id]["text"] + " " + text
+            ).strip()
+            speakers[speaker_id]["end_time"] = max(
+                speakers[speaker_id]["end_time"], end_time
+            )
+            speakers[speaker_id]["duration"] = (
+                speakers[speaker_id]["end_time"]
+                - speakers[speaker_id]["start_time"]
+            )
+
+    if not full_transcript and segments:
+        full_transcript = " ".join([seg["text"] for seg in segments]).strip()
+
+    return segments, speakers, full_transcript
+
+
+def run_stt_processing_background_voxtral(
+    upload_id: int,
+    s3_key: str,
+    user_id: int,
+    client_id: int,
+    session_number: Optional[int],
+):
+    """백그라운드에서 Voxtral Transcribe 2 STT 및 기록 저장 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    db = SessionLocal()
+    upload = None
+    temp_file_path: str | None = None
+    try:
+        upload = db.query(VoiceUpload).filter(
+            VoiceUpload.id == upload_id,
+            VoiceUpload.user_id == user_id,
+        ).first()
+        if not upload:
+            logger.warning(f"[bg] Upload not found for processing: upload_id={upload_id}, user_id={user_id}")
+            return
+        upload.status = "processing"
+        db.commit()
+
+        client = db.query(Client).filter(
+            Client.id == client_id,
+            Client.user_id == user_id,
+        ).first()
+        if not client:
+            logger.warning(f"[bg] Client not found or unauthorized: client_id={client_id}, user_id={user_id}")
+            upload.status = "failed"
+            upload.error_message = "Client not found or unauthorized"
+            db.commit()
+            return
+
+        from config.clients import initialize_clients
+        client_container = initialize_clients()
+
+        if not client_container.mistral_api_key:
+            logger.error("MISTRAL_API_KEY not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "MISTRAL_API_KEY not configured"
+            db.commit()
+            return
+
+        if not client_container.s3_client:
+            logger.error("S3 client not configured; skipping STT")
+            upload.status = "failed"
+            upload.error_message = "S3 client not configured"
+            db.commit()
+            return
+
+        try:
+            bucket_name = get_s3_bucket_name()
+        except Exception as e:
+            logger.error(f"S3 bucket name not configured: {str(e)}")
+            raise
+
+        presigned_url = client_container.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": s3_key},
+            ExpiresIn=21600,
+        )
+
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
+        temp_file_path = temp_file.name
+        with requests.get(presigned_url, stream=True, timeout=60) as download_resp:
+            download_resp.raise_for_status()
+            for chunk in download_resp.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    temp_file.write(chunk)
+        temp_file.close()
+
+        logger.info("[bg] Starting transcription with Voxtral Transcribe 2...")
+
+        # Mistral API 호출 (multipart/form-data)
+        mistral_headers = {
+            "Authorization": f"Bearer {client_container.mistral_api_key}",
+        }
+        with open(temp_file_path, "rb") as audio_file:
+            files = {
+                "file": (os.path.basename(s3_key), audio_file, "application/octet-stream"),
+            }
+            data = {
+                "model": "voxtral-mini-2602",
+                "diarize": "true",
+                "timestamp_granularities": "segment",
+                "language": "ko",
+                "response_format": "verbose_json",
+            }
+            mistral_response = requests.post(
+                "https://api.mistral.ai/v1/audio/transcriptions",
+                headers=mistral_headers,
+                files=files,
+                data=data,
+                timeout=600,
+            )
+
+        if not mistral_response.ok:
+            raise RuntimeError(
+                f"Voxtral transcription failed: {mistral_response.status_code} {mistral_response.text}"
+            )
+
+        result_payload = mistral_response.json()
+        segments, speakers, full_transcript = parse_voxtral_results(result_payload)
+        if not segments:
+            raise RuntimeError("Voxtral transcript produced no segments")
+
+        speaker_ids: list[str] = []
+        for seg in segments:
+            seg_speaker_id = str(seg.get("speaker_id"))
+            if seg_speaker_id not in speaker_ids:
+                speaker_ids.append(seg_speaker_id)
+
+        labels_applied = False
+        counselor_id = None
+        if client_container.openai_client:
+            counselor_id = asyncio.run(
+                identify_counselor_speaker_id(client_container.openai_client, segments)
+            )
+
+        if counselor_id:
+            label_map = build_speaker_label_map(speaker_ids, counselor_id)
+            for seg in segments:
+                seg_speaker_id = str(seg.get("speaker_id"))
+                seg["speaker_id"] = label_map.get(seg_speaker_id, seg_speaker_id)
+            for speaker in speakers.values():
+                spk_id = str(speaker.get("speaker_id"))
+                speaker["speaker_id"] = label_map.get(spk_id, spk_id)
+            labels_applied = True
+            logger.info(f"[bg] Speaker labels applied (Voxtral): counselor={counselor_id}")
+
+        for seg in segments:
+            seg_text = seg.get("text") or ""
+            seg["text"] = mask_sensitive_text(str(seg_text))
+        for speaker in speakers.values():
+            spk_text = speaker.get("text") or ""
+            speaker["text"] = mask_sensitive_text(str(spk_text))
+        full_transcript = mask_sensitive_text(full_transcript)
+
+        merged_segments = merge_segments(segments)
+        sorted_speakers = sorted(speakers.values(), key=lambda x: x["start_time"])
+
+        dialogue_prefix = "" if labels_applied else "발화자 "
+        dialogue = "\n".join(
+            [f"{dialogue_prefix}{seg['speaker_id']}: {seg['text']}" for seg in segments]
+        )
+
+        total_duration = int(segments[-1]["end_time"]) if segments else 0
+        original_filename = os.path.basename(s3_key)
+
+        if session_number:
+            auto_title = f"{client.name} - {session_number}회기 상담 (Voxtral)"
+        else:
+            auto_title = f"{client.name} - 상담 기록 (Voxtral) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+        voice_record = VoiceRecord(
+            title=auto_title,
+            user_id=user_id,
+            client_id=client_id,
+            session_number=session_number,
+            s3_key=s3_key,
+            original_filename=original_filename,
+            total_speakers=len(speakers),
+            full_transcript=full_transcript,
+            speakers_data=sorted_speakers,
+            segments_data=segments,
+            segments_merged_data=merged_segments,
+            dialogue=dialogue,
+            language_code="ko",
+            duration=total_duration,
+        )
+
+        db.add(voice_record)
+        db.commit()
+        db.refresh(voice_record)
+
+        logger.info(
+            f"[bg] Voice record saved (Voxtral): id={voice_record.id}, user_id={user_id}, client_id={client_id}"
+        )
+
+        if session_number == 1 and client_container.openai_client:
+            if client.ai_analysis_completed:
+                logger.info(f"[bg] AI analysis already completed for client_id={client_id}, skipping")
+            else:
+                try:
+                    chunks = build_semantic_chunks(segments)
+                    if chunks:
+                        ensure_vector_tables(db)
+                        embeddings = asyncio.run(embed_texts(client_container.openai_client, chunks))
+                        params_list = [
+                            {
+                                "voice_record_id": voice_record.id,
+                                "client_id": client_id,
+                                "session_number": session_number,
+                                "chunk_index": idx,
+                                "content": chunk,
+                                "embedding": vector_to_pg(embedding),
+                            }
+                            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                        ]
+                        db.execute(
+                            text(
+                                """
+                                INSERT INTO voice_record_chunks
+                                (voice_record_id, client_id, session_number, chunk_index, content, embedding)
+                            VALUES (:voice_record_id, :client_id, :session_number, :chunk_index, :content, CAST(:embedding AS vector))
+                                """
+                            ),
+                            params_list,
+                        )
+                        db.commit()
+                        logger.info(
+                            f"[bg] Stored {len(chunks)} chunks for voice_record_id={voice_record.id}"
+                        )
+                    else:
+                        logger.warning(f"[bg] No chunks generated for voice_record_id={voice_record.id}")
+                except Exception as e:
+                    logger.warning(f"[bg] RAG chunking skipped due to error: {str(e)}")
+                    db.rollback()
+
+                try:
+                    logger.info(
+                        f"[bg] First session detected for client_id={client_id}, running AI analysis"
+                    )
+                    asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
+                except Exception as e:
+                    logger.warning(f"[bg] AI analysis failed: {str(e)}")
+        elif session_number and session_number > 1 and client_container.openai_client:
+            try:
+                logger.info(
+                    f"[bg] Session {session_number} detected for client_id={client_id}, generating next session goal"
+                )
+                asyncio.run(
+                    analyze_next_session_goal(db, client, voice_record.id, session_number, dialogue)
+                )
+            except Exception as e:
+                logger.warning(f"[bg] Next session goal analysis failed: {str(e)}")
+
+        upload.status = "completed"
+        upload.voice_record_id = voice_record.id
+        upload.error_message = None
+        db.commit()
+    except Exception as e:
+        logger.exception(f"[bg] process-s3-file-voxtral failed: {str(e)}")
+        if upload:
+            upload.status = "failed"
+            upload.error_message = str(e)
+            db.commit()
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"[bg] Temporary file deleted: {temp_file_path}")
+            except Exception:
+                logger.exception("[bg] Failed to delete temporary file")
+        db.close()
 
 
 def run_stt_processing_background(
@@ -2350,6 +2663,73 @@ async def process_s3_file_vito(
     except Exception as e:
         logger.exception("process-s3-file-vito failed")
         raise InternalError(f"VITO STT 처리 요청 실패: {str(e)}")
+
+
+@router.post("/process-s3-file-voxtral", response_model=ProcessS3FileResponse)
+async def process_s3_file_voxtral(
+    request: ProcessS3FileRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+    mistral_api_key: str | None = Depends(get_mistral_api_key),
+):
+    """S3에 업로드된 파일을 Voxtral Transcribe 2로 처리 (한국어 + 화자 구분 + 민감정보 마스킹)"""
+    try:
+        logger.info(
+            f"/voice/process-s3-file-voxtral called: s3_key={request.s3_key}, client_id={request.client_id}, user_id={current_user.id}"
+        )
+
+        if not request.client_id:
+            raise BadRequest("client_id is required")
+
+        client = db.query(Client).filter(
+            Client.id == request.client_id,
+            Client.user_id == current_user.id,
+        ).first()
+        if not client:
+            raise BadRequest(f"Client not found or unauthorized: client_id={request.client_id}")
+
+        if not mistral_api_key:
+            raise BadRequest("MISTRAL_API_KEY 환경 변수가 설정되지 않았습니다.")
+
+        if not s3_client:
+            raise InternalError("S3 클라이언트가 초기화되지 않았습니다.")
+
+        upload = VoiceUpload(
+            user_id=current_user.id,
+            client_id=request.client_id,
+            session_number=request.session_number,
+            s3_key=request.s3_key,
+            status="queued",
+        )
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        task_id = str(upload.id)
+        background_tasks.add_task(
+            run_stt_processing_background_voxtral,
+            upload.id,
+            request.s3_key,
+            current_user.id,
+            request.client_id,
+            request.session_number,
+        )
+
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "message": "Voxtral Transcribe 2 STT processing started",
+                "task_id": task_id,
+            },
+        )
+    except AppException:
+        raise
+    except Exception as e:
+        logger.exception("process-s3-file-voxtral failed")
+        raise InternalError(f"Voxtral STT 처리 요청 실패: {str(e)}")
 
 
 @router.post("/speaker-diarization-v2")
