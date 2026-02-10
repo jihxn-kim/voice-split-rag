@@ -975,7 +975,9 @@ def run_stt_processing_background_voxtral(
         )
 
         # S3에서 파일 다운로드
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
+        import subprocess
+        orig_ext = os.path.splitext(s3_key)[1] or ".m4a"
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=orig_ext)
         temp_file_path = temp_file.name
         with requests.get(presigned_url, stream=True, timeout=120) as download_resp:
             download_resp.raise_for_status()
@@ -984,18 +986,38 @@ def run_stt_processing_background_voxtral(
                     temp_file.write(chunk)
         temp_file.close()
         file_size = os.path.getsize(temp_file_path)
-        logger.info(f"[bg] Downloaded from S3: {file_size} bytes ({file_size / 1024 / 1024:.1f} MB)")
+        logger.info(f"[bg] Downloaded from S3: {file_size} bytes ({file_size / 1024 / 1024:.1f} MB), ext={orig_ext}")
+
+        # m4a/aac 등 비표준 포맷이면 ffmpeg로 wav 변환
+        send_file_path = temp_file_path
+        wav_path = None
+        if orig_ext.lower() in (".m4a", ".aac", ".ogg", ".wma", ".webm", ".flac"):
+            wav_path = temp_file_path + ".wav"
+            logger.info(f"[bg] Converting {orig_ext} -> wav via ffmpeg")
+            ffmpeg_result = subprocess.run(
+                ["ffmpeg", "-y", "-i", temp_file_path, "-ar", "16000", "-ac", "1", wav_path],
+                capture_output=True, text=True, timeout=300,
+            )
+            if ffmpeg_result.returncode != 0:
+                logger.error(f"[bg] ffmpeg failed: {ffmpeg_result.stderr[:1000]}")
+                raise RuntimeError(f"ffmpeg conversion failed: {ffmpeg_result.stderr[:500]}")
+            wav_size = os.path.getsize(wav_path)
+            logger.info(f"[bg] Converted to wav: {wav_size} bytes ({wav_size / 1024 / 1024:.1f} MB)")
+            send_file_path = wav_path
+            send_file_name = os.path.splitext(os.path.basename(s3_key))[0] + ".wav"
+        else:
+            send_file_name = os.path.basename(s3_key)
 
         # Mistral Python SDK로 호출
         from mistralai import Mistral as MistralClient
         mistral_client = MistralClient(api_key=client_container.mistral_api_key)
 
-        logger.info(f"[bg] Starting Voxtral transcription via SDK, file={temp_file_path}")
-        with open(temp_file_path, "rb") as f:
+        logger.info(f"[bg] Starting Voxtral transcription via SDK, file={send_file_path}")
+        with open(send_file_path, "rb") as f:
             transcription = mistral_client.audio.transcriptions.complete(
                 model="voxtral-mini-2602",
                 file={
-                    "file_name": os.path.basename(s3_key),
+                    "file_name": send_file_name,
                     "content": f,
                 },
                 diarize=True,
@@ -1012,11 +1034,12 @@ def run_stt_processing_background_voxtral(
             result_payload = json.loads(transcription.json()) if hasattr(transcription, "json") else {"text": str(transcription)}
 
         # temp 파일 정리
-        try:
-            os.unlink(temp_file_path)
-        except Exception:
-            pass
-        temp_file_path = None
+        for p in [temp_file_path, wav_path]:
+            if p and os.path.exists(p):
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
         logger.info(
             f"[bg] Voxtral raw response keys={list(result_payload.keys())}, "
             f"text_length={len(result_payload.get('text') or '')}, "
