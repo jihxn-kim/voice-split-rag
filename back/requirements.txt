@@ -9,6 +9,7 @@ pydub==0.25.1
 python-multipart==0.0.20
 boto3==1.35.94
 requests==2.32.3
+mistralai>=1.6.0
 
 # Database & Auth
 sqlalchemy==2.0.36

@@ -974,36 +974,49 @@ def run_stt_processing_background_voxtral(
             ExpiresIn=21600,
         )
 
-        logger.info(f"[bg] Starting transcription with Voxtral Transcribe 2 via file_url, s3_key={s3_key}")
+        # S3에서 파일 다운로드
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
+        temp_file_path = temp_file.name
+        with requests.get(presigned_url, stream=True, timeout=120) as download_resp:
+            download_resp.raise_for_status()
+            for chunk in download_resp.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    temp_file.write(chunk)
+        temp_file.close()
+        file_size = os.path.getsize(temp_file_path)
+        logger.info(f"[bg] Downloaded from S3: {file_size} bytes ({file_size / 1024 / 1024:.1f} MB)")
 
-        # Mistral API 호출 (multipart/form-data, file_url 사용)
-        mistral_headers = {
-            "Authorization": f"Bearer {client_container.mistral_api_key}",
-        }
-        form_fields = [
-            ("model", (None, "voxtral-mini-2602")),
-            ("file_url", (None, presigned_url)),
-            ("diarize", (None, "true")),
-            ("timestamp_granularities", (None, "segment")),
-            ("response_format", (None, "verbose_json")),
-        ]
-        logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, timestamp_granularities=segment")
-        mistral_response = requests.post(
-            "https://api.mistral.ai/v1/audio/transcriptions",
-            headers=mistral_headers,
-            files=form_fields,
-            timeout=600,
-        )
+        # Mistral Python SDK로 호출
+        from mistralai import Mistral as MistralClient
+        mistral_client = MistralClient(api_key=client_container.mistral_api_key)
 
-        if not mistral_response.ok:
-            logger.error(
-                f"[bg] Voxtral API error: status={mistral_response.status_code}, body={mistral_response.text[:2000]}"
+        logger.info(f"[bg] Starting Voxtral transcription via SDK, file={temp_file_path}")
+        with open(temp_file_path, "rb") as f:
+            transcription = mistral_client.audio.transcriptions.complete(
+                model="voxtral-mini-2602",
+                file={
+                    "file_name": os.path.basename(s3_key),
+                    "content": f,
+                },
+                diarize=True,
+                timestamp_granularities=["segment"],
+                response_format="verbose_json",
             )
-            raise RuntimeError(
-                f"Voxtral transcription failed: {mistral_response.status_code} {mistral_response.text}"
-            )
 
-        result_payload = mistral_response.json()
+        # SDK 응답을 dict로 변환
+        if hasattr(transcription, "model_dump"):
+            result_payload = transcription.model_dump()
+        elif hasattr(transcription, "dict"):
+            result_payload = transcription.dict()
+        else:
+            result_payload = json.loads(transcription.json()) if hasattr(transcription, "json") else {"text": str(transcription)}
+
+        # temp 파일 정리
+        try:
+            os.unlink(temp_file_path)
+        except Exception:
+            pass
+        temp_file_path = None
         logger.info(
             f"[bg] Voxtral raw response keys={list(result_payload.keys())}, "
             f"text_length={len(result_payload.get('text') or '')}, "
