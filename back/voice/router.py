@@ -1009,11 +1009,28 @@ def run_stt_processing_background_voxtral(
             )
 
         if not mistral_response.ok:
+            logger.error(
+                f"[bg] Voxtral API error: status={mistral_response.status_code}, body={mistral_response.text[:2000]}"
+            )
             raise RuntimeError(
                 f"Voxtral transcription failed: {mistral_response.status_code} {mistral_response.text}"
             )
 
         result_payload = mistral_response.json()
+        logger.info(
+            f"[bg] Voxtral raw response keys={list(result_payload.keys())}, "
+            f"text_length={len(result_payload.get('text') or '')}, "
+            f"segments_count={len(result_payload.get('segments') or [])}, "
+            f"language={result_payload.get('language')}, "
+            f"model={result_payload.get('model')}"
+        )
+        # 첫 3개 segment 샘플 로그
+        raw_segments = result_payload.get("segments") or []
+        for i, seg in enumerate(raw_segments[:3]):
+            logger.info(f"[bg] Voxtral segment[{i}]: {json.dumps(seg, ensure_ascii=False)[:500]}")
+        if len(raw_segments) > 3:
+            logger.info(f"[bg] ... and {len(raw_segments) - 3} more segments")
+
         segments, speakers, full_transcript = parse_voxtral_results(result_payload)
         if not segments:
             raise RuntimeError("Voxtral transcript produced no segments")
