@@ -998,7 +998,6 @@ def run_stt_processing_background_voxtral(
                 "model": "voxtral-mini-2602",
                 "diarize": "true",
                 "timestamp_granularities": "segment",
-                "language": "ko",
                 "response_format": "verbose_json",
             }
             mistral_response = requests.post(
