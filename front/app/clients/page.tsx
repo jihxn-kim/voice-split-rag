@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus } from "lucide-react";
 import Sidebar from '../../components/Sidebar';
 import './clients.css';
 
@@ -91,14 +92,14 @@ export default function ClientsPage() {
         <div className="clients-container">
           <div className="clients-header">
             <div>
-              <h1 className="clients-title">👥 내담자 관리</h1>
+              <h1 className="clients-title">내담자 관리</h1>
               <p className="clients-subtitle">총 {total}명의 내담자</p>
             </div>
             <button
               onClick={() => router.push('/clients/new')}
               className="add-client-btn"
             >
-              ➕ 내담자 등록
+              <Plus size={18} /> 내담자 등록
             </button>
           </div>
 

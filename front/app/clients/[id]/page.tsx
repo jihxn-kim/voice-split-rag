@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Pencil, Trash2, BarChart3, Upload, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import Sidebar from '../../../components/Sidebar';
 import './detail.css';
 
@@ -337,7 +338,7 @@ export default function ClientDetailPage() {
         <div className="client-detail-container">
           <div className="detail-header">
             <button onClick={() => router.push('/clients')} className="back-btn">
-              ← 목록으로
+              <ArrowLeft size={16} /> 목록으로
             </button>
           </div>
 
@@ -358,7 +359,7 @@ export default function ClientDetailPage() {
                   onClick={() => setShowSessionModal(true)}
                   className="session-btn"
                 >
-                  📊 회기 추가
+                  <BarChart3 size={18} /> 회기 추가
                 </button>
               </div>
             </div>
@@ -385,10 +386,10 @@ export default function ClientDetailPage() {
                 onClick={() => router.push(`/clients/${clientId}/edit`)}
                 className="edit-btn"
               >
-                ✏️ 정보 수정
+                <Pencil size={16} /> 정보 수정
               </button>
               <button onClick={handleDeleteClient} className="delete-client-btn">
-                🗑️ 내담자 삭제
+                <Trash2 size={16} /> 내담자 삭제
               </button>
             </div>
 
@@ -400,26 +401,26 @@ export default function ClientDetailPage() {
           {/* AI 분석 결과 섹션 - 1회기 기반 */}
           {client.ai_analysis_completed && (
             <div className="ai-analysis-section">
-              <h2 className="ai-section-title">📊 1회기 상담 기반 AI 분석</h2>
-              
+              <h2 className="ai-section-title">1회기 상담 기반 AI 분석</h2>
+
               <div className="ai-info-grid">
                 {client.ai_consultation_background && (
                   <div className="ai-info-section">
-                    <h3 className="ai-info-title">✨ 상담 신청 배경</h3>
+                    <h3 className="ai-info-title">상담 신청 배경</h3>
                     <p className="ai-info-text">{client.ai_consultation_background}</p>
                   </div>
                 )}
 
                 {client.ai_main_complaint && (
                   <div className="ai-info-section">
-                    <h3 className="ai-info-title">💡 주 호소 문제</h3>
+                    <h3 className="ai-info-title">주 호소 문제</h3>
                     <p className="ai-info-text">{client.ai_main_complaint}</p>
                   </div>
                 )}
 
                 {client.ai_current_symptoms && (
                   <div className="ai-info-section">
-                    <h3 className="ai-info-title">🩺 현재 증상</h3>
+                    <h3 className="ai-info-title">현재 증상</h3>
                     <p className="ai-info-text">{client.ai_current_symptoms}</p>
                   </div>
                 )}
@@ -433,10 +434,10 @@ export default function ClientDetailPage() {
               className="records-summary-btn"
             >
               <span className="records-summary-text">
-                📋 상담 기록 ({voiceRecords.length}
+                상담 기록 ({voiceRecords.length}
                 {client.total_sessions > 0 ? `/${client.total_sessions}` : ''})
               </span>
-              <span className="toggle-icon">{showRecordsView ? '▲' : '▼'}</span>
+              <span className="toggle-icon">{showRecordsView ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
             </button>
           </div>
 
@@ -444,7 +445,7 @@ export default function ClientDetailPage() {
             <div className="session-boxes-container">
               {client.total_sessions === 0 ? (
                 <div className="no-sessions-message">
-                  <p>📊 회기를 먼저 추가한 후, 회기별로 상담 음성을 업로드할 수 있습니다.</p>
+                  <p>회기를 먼저 추가한 후, 회기별로 상담 음성을 업로드할 수 있습니다.</p>
                   <p className="sub-text">
                     상단의 &quot;회기 추가&quot; 버튼을 눌러 전체 회기 수를 설정해주세요.
                   </p>
@@ -493,13 +494,13 @@ export default function ClientDetailPage() {
                           </div>
                         ) : showFailed ? (
                           <div className="session-failed">
-                            <span className="failed-icon">⚠️</span>
+                            <AlertTriangle size={20} className="failed-icon" />
                             <span className="failed-text">업로드 실패</span>
                             <span className="failed-subtext">클릭해서 다시 업로드</span>
                           </div>
                         ) : (
                           <div className="session-empty">
-                            <span className="upload-icon">📁</span>
+                            <Upload size={24} strokeWidth={1.5} className="upload-icon" />
                             <span className="upload-text">업로드</span>
                           </div>
                         )}

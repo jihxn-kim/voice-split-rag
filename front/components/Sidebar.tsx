@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { Home, Users, FileText, LogOut } from "lucide-react";
 import "./Sidebar.css";
 
 export default function Sidebar() {
@@ -13,9 +14,9 @@ export default function Sidebar() {
   };
 
   const menuItems = [
-    { name: "홈", path: "/", icon: "🏠" },
-    { name: "내담자 관리", path: "/clients", icon: "👥" },
-    { name: "상담 기록", path: "/history", icon: "📋" },
+    { name: "홈", path: "/", icon: Home },
+    { name: "내담자 관리", path: "/clients", icon: Users },
+    { name: "상담 기록", path: "/history", icon: FileText },
   ];
 
   return (
@@ -25,26 +26,28 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {menuItems.map((item) => (
-          <button
-            key={item.path}
-            className={`nav-item ${
-              pathname === item.path || 
-              (item.path !== "/" && pathname.startsWith(item.path)) 
-                ? "active" 
-                : ""
-            }`}
-            onClick={() => router.push(item.path)}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span className="nav-label">{item.name}</span>
-          </button>
-        ))}
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            pathname === item.path ||
+            (item.path !== "/" && pathname.startsWith(item.path));
+          return (
+            <button
+              key={item.path}
+              className={`nav-item ${isActive ? "active" : ""}`}
+              onClick={() => router.push(item.path)}
+            >
+              <Icon className="nav-icon" size={20} strokeWidth={isActive ? 2.2 : 1.8} />
+              <span className="nav-label">{item.name}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer">
         <button className="logout-button" onClick={handleLogout}>
-          🚪 로그아웃
+          <LogOut size={18} strokeWidth={1.8} />
+          <span>로그아웃</span>
         </button>
       </div>
     </div>

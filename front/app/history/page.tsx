@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FileText, Mic, Users, RefreshCw } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import "./history.css";
 
@@ -106,11 +107,11 @@ export default function HistoryPage() {
         <div className="history-container">
           <div className="history-header">
             <div>
-              <h1 className="history-title">📋 상담 기록</h1>
+              <h1 className="history-title">상담 기록</h1>
               <p className="history-subtitle">총 {total}개의 기록</p>
             </div>
             <button onClick={handleBackToUpload} className="upload-btn">
-              🎙️ 새 음성 업로드
+              <Mic size={18} /> 새 음성 업로드
             </button>
           </div>
 
@@ -141,7 +142,7 @@ export default function HistoryPage() {
                   <div className="record-title">{record.title}</div>
                   <div className="record-info">
                     <span className="info-item">
-                      👥 {record.total_speakers}명
+                      <Users size={14} /> {record.total_speakers}명
                     </span>
                   </div>
                   <div className="record-date">

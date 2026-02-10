@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { ArrowLeft, Pencil, Trash2, Save, X, Copy, Check, Target, FileText as FileTextIcon, UserCircle, Stethoscope, User } from "lucide-react";
 import Sidebar from "../../../components/Sidebar";
 import "./detail.css";
 
@@ -339,9 +340,7 @@ export default function RecordDetailPage() {
   };
 
   const getSpeakerIcon = (label: string) => {
-    if (label.includes("상담사")) return "🧑‍⚕️";
-    if (label.includes("내담자")) return "🧑";
-    return "👤";
+    return null;
   };
 
   const getSpeakerRole = (speakerId: string) => {
@@ -392,7 +391,7 @@ export default function RecordDetailPage() {
         <div className="detail-container">
           <div className="detail-header">
             <button onClick={() => router.push("/history")} className="back-btn">
-              ← 목록으로
+              <ArrowLeft size={16} /> 목록으로
             </button>
           </div>
 
@@ -428,10 +427,10 @@ export default function RecordDetailPage() {
                       onClick={() => setEditingTitle(true)}
                       className="edit-btn"
                     >
-                      ✏️ 수정
+                      <Pencil size={14} /> 수정
                     </button>
                     <button onClick={handleDeleteRecord} className="delete-btn">
-                      🗑️ 삭제
+                      <Trash2 size={14} /> 삭제
                     </button>
                   </div>
                 </div>
@@ -465,7 +464,7 @@ export default function RecordDetailPage() {
                           onClick={() => handleEditSpeaker(speakerId)}
                         >
                           <span className="speaker-icon">
-                            {getSpeakerIcon(displayName)}
+                            <UserCircle size={16} />
                           </span>
                           <span className="speaker-name">{displayName}</span>
                         </button>
@@ -481,14 +480,14 @@ export default function RecordDetailPage() {
 
             {record.next_session_goal ? (
               <div className="next-goal-card">
-                <h2 className="section-title">🎯 다음 회기 상담 목표</h2>
+                <h2 className="section-title">다음 회기 상담 목표</h2>
                 <p className="next-goal-text">{record.next_session_goal}</p>
               </div>
             ) : null}
 
             <div className="section">
               <div className="section-header">
-                <h2 className="section-title">📝 축어록</h2>
+                <h2 className="section-title">축어록</h2>
                 <button
                   type="button"
                   onClick={handleCopyDialogue}

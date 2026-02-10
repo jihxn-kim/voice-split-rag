@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import Sidebar from '../../../components/Sidebar';
 import './new.css';
 
@@ -83,14 +84,14 @@ export default function NewClientPage() {
         <div className="new-client-container">
           <div className="page-header">
             <button onClick={() => router.push('/clients')} className="back-btn">
-              ← 목록으로
+              <ArrowLeft size={16} /> 목록으로
             </button>
             <h1 className="page-title">내담자 등록</h1>
           </div>
 
           {error && (
             <div className="error-banner">
-              <span className="error-icon">⚠️</span>
+              <AlertCircle size={18} className="error-icon" />
               {error}
             </div>
           )}

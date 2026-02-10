@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Mic, Upload as UploadIcon, Music, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import "./upload.css";
 
@@ -235,7 +236,7 @@ export default function Upload() {
       <Sidebar />
       <div className="main-content">
         <div className="upload-container">
-          <h1 className="page-title">🎙️ 녹음 파일 업로드</h1>
+          <h1 className="page-title"><Mic size={24} /> 녹음 파일 업로드</h1>
 
           <div
             className={`dropzone${isDragging ? " dragging" : ""}`}
@@ -261,7 +262,7 @@ export default function Upload() {
 
             {!selectedFile && (
               <div className="empty-state">
-                <div className="upload-icon">📁</div>
+                <div className="upload-icon"><UploadIcon size={48} strokeWidth={1.5} /></div>
                 <p className="headline">
                   파일을 여기로 드래그하거나 클릭하여 선택하세요
                 </p>
@@ -291,7 +292,7 @@ export default function Upload() {
                 ) : diarizationResult ? (
                   <div className="success">
                     <div className="success-icon">
-                      {diarizationResult?.status === 'queued' ? '⏳' : '✅'}
+                      {diarizationResult?.status === 'queued' ? <Clock size={48} strokeWidth={1.5} /> : <CheckCircle size={48} strokeWidth={1.5} />}
                     </div>
                     <h2>
                       {diarizationResult?.status === 'queued'
@@ -308,7 +309,7 @@ export default function Upload() {
                 ) : (
                   <>
                     <div className="file-info">
-                      <div className="file-icon">🎵</div>
+                      <div className="file-icon"><Music size={28} /></div>
                       <div className="file-details">
                         <div className="file-name" title={selectedFile.name}>
                           {selectedFile.name}
@@ -335,7 +336,7 @@ export default function Upload() {
 
                     {errorMsg && (
                       <div className="error-message">
-                        <span className="error-icon">⚠️</span>
+                        <span className="error-icon"><AlertCircle size={18} /></span>
                         <p>{errorMsg}</p>
                       </div>
                     )}

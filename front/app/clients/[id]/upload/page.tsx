@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Mic, Upload, Music, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import Sidebar from '../../../../components/Sidebar';
 import './upload.css';
 
@@ -280,10 +281,10 @@ export default function ClientUploadPage() {
         <div className="upload-container">
           <div className="upload-header">
             <button onClick={() => router.push(`/clients/${clientId}`)} className="back-btn">
-              ← 내담자 상세로
+              <ArrowLeft size={16} /> 내담자 상세로
             </button>
             <h1 className="page-title">
-              🎙️ {client.name} - {sessionNumber ? `${sessionNumber}회기 ` : ''}상담 음성 업로드
+              <Mic size={24} /> {client.name} - {sessionNumber ? `${sessionNumber}회기 ` : ''}상담 음성 업로드
             </h1>
           </div>
 
@@ -311,7 +312,7 @@ export default function ClientUploadPage() {
 
             {!selectedFile && (
               <div className="empty-state">
-                <div className="upload-icon">📁</div>
+                <div className="upload-icon"><Upload size={48} strokeWidth={1.5} /></div>
                 <p className="headline">
                   파일을 여기로 드래그하거나 클릭하여 선택하세요
                 </p>
@@ -341,7 +342,7 @@ export default function ClientUploadPage() {
                 ) : diarizationResult ? (
                   <div className="success">
                     <div className="success-icon">
-                      {diarizationResult?.status === 'queued' ? '⏳' : '✅'}
+                      {diarizationResult?.status === 'queued' ? <Clock size={48} strokeWidth={1.5} /> : <CheckCircle size={48} strokeWidth={1.5} />}
                     </div>
                     <h2>
                       {diarizationResult?.status === 'queued'
@@ -358,7 +359,7 @@ export default function ClientUploadPage() {
                 ) : (
                   <>
                     <div className="file-info">
-                      <div className="file-icon">🎵</div>
+                      <div className="file-icon"><Music size={28} /></div>
                       <div className="file-details">
                         <div className="file-name" title={selectedFile.name}>
                           {selectedFile.name}
@@ -385,7 +386,7 @@ export default function ClientUploadPage() {
 
                     {errorMsg && (
                       <div className="error-message">
-                        <span className="error-icon">⚠️</span>
+                        <AlertCircle size={18} className="error-icon" />
                         <p>{errorMsg}</p>
                       </div>
                     )}

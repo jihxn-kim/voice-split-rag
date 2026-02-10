@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { ArrowLeft, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import Sidebar from '../../../../components/Sidebar';
 import './edit.css';
 
@@ -192,7 +193,7 @@ export default function ClientEditPage() {
         <div className="edit-container">
           <div className="edit-header">
             <button onClick={() => router.push(`/clients/${clientId}`)} className="back-btn">
-              ← 내담자 상세로
+              <ArrowLeft size={16} /> 내담자 상세로
             </button>
             <h1 className="page-title">내담자 정보 수정</h1>
           </div>
@@ -272,21 +273,21 @@ export default function ClientEditPage() {
                     className="btn-show-ai"
                     onClick={() => setShowAiBackground(!showAiBackground)}
                   >
-                    {showAiBackground ? '🔼 AI 분석 숨기기' : '🔽 AI 분석 보기 (1회기 기반)'}
+                    {showAiBackground ? <><ChevronUp size={14} /> AI 분석 숨기기</> : <><ChevronDown size={14} /> AI 분석 보기</>}
                   </button>
                 )}
               </div>
               {showAiBackground && client.ai_consultation_background && (
                 <div className="ai-analysis-box">
                   <div className="ai-box-header">
-                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <strong>1회기 상담 기반 AI 분석:</strong>
                     <button
                       type="button"
                       className="btn-copy"
                       onClick={() => copyToClipboard(client.ai_consultation_background!, 'aiBackground')}
                       title="클립보드에 복사"
                     >
-                      {copiedField === 'aiBackground' ? '✅ 복사 완료' : '📋 복사'}
+                      {copiedField === 'aiBackground' ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 복사</>}
                     </button>
                   </div>
                   <p>{client.ai_consultation_background}</p>
@@ -311,21 +312,21 @@ export default function ClientEditPage() {
                     className="btn-show-ai"
                     onClick={() => setShowAiComplaint(!showAiComplaint)}
                   >
-                    {showAiComplaint ? '🔼 AI 분석 숨기기' : '🔽 AI 분석 보기 (1회기 기반)'}
+                    {showAiComplaint ? <><ChevronUp size={14} /> AI 분석 숨기기</> : <><ChevronDown size={14} /> AI 분석 보기</>}
                   </button>
                 )}
               </div>
               {showAiComplaint && client.ai_main_complaint && (
                 <div className="ai-analysis-box">
                   <div className="ai-box-header">
-                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <strong>1회기 상담 기반 AI 분석:</strong>
                     <button
                       type="button"
                       className="btn-copy"
                       onClick={() => copyToClipboard(client.ai_main_complaint!, 'aiComplaint')}
                       title="클립보드에 복사"
                     >
-                      {copiedField === 'aiComplaint' ? '✅ 복사 완료' : '📋 복사'}
+                      {copiedField === 'aiComplaint' ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 복사</>}
                     </button>
                   </div>
                   <p>{client.ai_main_complaint}</p>
@@ -350,21 +351,21 @@ export default function ClientEditPage() {
                     className="btn-show-ai"
                     onClick={() => setShowAiSymptoms(!showAiSymptoms)}
                   >
-                    {showAiSymptoms ? '🔼 AI 분석 숨기기' : '🔽 AI 분석 보기 (1회기 기반)'}
+                    {showAiSymptoms ? <><ChevronUp size={14} /> AI 분석 숨기기</> : <><ChevronDown size={14} /> AI 분석 보기</>}
                   </button>
                 )}
               </div>
               {showAiSymptoms && client.ai_current_symptoms && (
                 <div className="ai-analysis-box">
                   <div className="ai-box-header">
-                    <strong>📊 1회기 상담 기반 AI 분석:</strong>
+                    <strong>1회기 상담 기반 AI 분석:</strong>
                     <button
                       type="button"
                       className="btn-copy"
                       onClick={() => copyToClipboard(client.ai_current_symptoms!, 'aiSymptoms')}
                       title="클립보드에 복사"
                     >
-                      {copiedField === 'aiSymptoms' ? '✅ 복사 완료' : '📋 복사'}
+                      {copiedField === 'aiSymptoms' ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 복사</>}
                     </button>
                   </div>
                   <p>{client.ai_current_symptoms}</p>
@@ -399,7 +400,7 @@ export default function ClientEditPage() {
         {/* 토스트 알림 */}
         {showToast && (
           <div className="toast-notification">
-            ✅ 클립보드에 복사 완료
+            클립보드에 복사 완료
           </div>
         )}
       </div>

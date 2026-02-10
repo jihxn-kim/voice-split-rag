@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Mic, ArrowRight, Clock } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import "./page.css";
 
@@ -133,16 +134,16 @@ export default function Home() {
             반갑습니다, <span className="highlight">{userInfo.full_name || userInfo.username}</span> 선생님
           </h1>
           <p className="welcome-subtitle">
-            오늘도 따뜻한 상담이 되시길 바랍니다 ☺️
+            오늘도 따뜻한 상담이 되시길 바랍니다
           </p>
           <button className="upload-btn-large" onClick={handleUploadClick}>
-            🎙️ 녹음 파일 업로드하기
+            <Mic size={20} /> 녹음 파일 업로드하기
           </button>
         </div>
 
         <div className="recent-section">
           <div className="section-header">
-            <h2 className="section-title">📋 지난 상담 기록</h2>
+            <h2 className="section-title">지난 상담 기록</h2>
             <button
               className="view-all-btn"
               onClick={() => router.push('/history')}
