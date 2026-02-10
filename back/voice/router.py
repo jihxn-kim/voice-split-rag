@@ -1022,7 +1022,6 @@ def run_stt_processing_background_voxtral(
                 },
                 diarize=True,
                 timestamp_granularities=["segment"],
-                response_format="verbose_json",
             )
 
         # SDK 응답을 dict로 변환
