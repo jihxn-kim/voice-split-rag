@@ -189,7 +189,7 @@ export default function ClientUploadPage() {
       }
 
       // 3단계: 백엔드에 처리 요청 (client_id, session_number 포함)
-      const processRes = await fetch('/api/process-audio-speechmatics', {
+      const processRes = await fetch('/api/process-audio-voxtral', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
