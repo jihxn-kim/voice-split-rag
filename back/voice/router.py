@@ -984,7 +984,24 @@ def run_stt_processing_background_voxtral(
                     temp_file.write(chunk)
         temp_file.close()
 
-        logger.info("[bg] Starting transcription with Voxtral Transcribe 2...")
+        # 파일 크기 확인 로그
+        file_size = os.path.getsize(temp_file_path)
+        logger.info(f"[bg] Starting transcription with Voxtral Transcribe 2... file_size={file_size} bytes ({file_size / 1024 / 1024:.1f} MB)")
+
+        # MIME 타입 결정
+        ext = os.path.splitext(s3_key)[1].lower()
+        mime_map = {
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav",
+            ".m4a": "audio/mp4",
+            ".flac": "audio/flac",
+            ".ogg": "audio/ogg",
+            ".aac": "audio/aac",
+            ".wma": "audio/x-ms-wma",
+            ".webm": "audio/webm",
+        }
+        content_type = mime_map.get(ext, "audio/mpeg")
+        logger.info(f"[bg] File extension={ext}, content_type={content_type}")
 
         # Mistral API 호출 (multipart/form-data)
         mistral_headers = {
@@ -992,7 +1009,7 @@ def run_stt_processing_background_voxtral(
         }
         with open(temp_file_path, "rb") as audio_file:
             files = {
-                "file": (os.path.basename(s3_key), audio_file, "application/octet-stream"),
+                "file": (os.path.basename(s3_key), audio_file, content_type),
             }
             data = {
                 "model": "voxtral-mini-2602",
