@@ -984,6 +984,7 @@ def run_stt_processing_background_voxtral(
             "model": (None, "voxtral-mini-2602"),
             "file_url": (None, presigned_url),
             "diarize": (None, "true"),
+            "timestamp_granularities": (None, '["segment"]'),
             "response_format": (None, "verbose_json"),
         }
         logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, response_format=verbose_json")
