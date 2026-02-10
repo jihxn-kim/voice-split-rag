@@ -191,6 +191,7 @@ select:focus {
    ======================== */
 .glass-panel,
 .recent-section,
+.calendar-section,
 .record-card,
 .client-card,
 .detail-card,
@@ -280,7 +281,9 @@ select:focus {
     .submit-btn,
     .auth-submit-btn,
     .save-btn,
-    .speaker-save-btn
+    .speaker-save-btn,
+    .add-schedule-btn,
+    .modal-submit
   ) {
   background: var(--primary-gradient) !important;
   color: #ffffff !important;
@@ -299,7 +302,9 @@ select:focus {
     .submit-btn,
     .auth-submit-btn,
     .save-btn,
-    .speaker-save-btn
+    .speaker-save-btn,
+    .add-schedule-btn,
+    .modal-submit
   ):hover:not(:disabled) {
   background: var(--primary-gradient-hover) !important;
   box-shadow: var(--shadow-glow);
@@ -318,7 +323,10 @@ select:focus {
     .btn-copy,
     .edit-btn,
     .back-btn,
-    .cancel-btn
+    .cancel-btn,
+    .nav-btn,
+    .add-day-btn,
+    .modal-cancel
   ) {
   background: rgba(255, 255, 255, 0.8) !important;
   color: var(--primary-ink) !important;
@@ -336,7 +344,10 @@ select:focus {
     .btn-copy,
     .edit-btn,
     .back-btn,
-    .cancel-btn
+    .cancel-btn,
+    .nav-btn,
+    .add-day-btn,
+    .modal-cancel
   ):hover:not(:disabled) {
   background: var(--cyan-soft) !important;
   border-color: var(--cyan) !important;
@@ -348,13 +359,13 @@ select:focus {
 /* ========================
    DANGER BUTTONS
    ======================== */
-:where(.logout-button, .delete-btn, .delete-client-btn, .retry-btn) {
+:where(.logout-button, .delete-btn, .delete-client-btn, .retry-btn, .timeline-delete) {
   background: var(--danger-bg) !important;
   color: var(--danger-text) !important;
   border: 1px solid var(--danger-border) !important;
 }
 
-:where(.logout-button, .delete-btn, .delete-client-btn, .retry-btn):hover:not(:disabled) {
+:where(.logout-button, .delete-btn, .delete-client-btn, .retry-btn, .timeline-delete):hover:not(:disabled) {
   background: var(--danger-hover-bg) !important;
   transform: translateY(-1px);
 }
@@ -370,7 +381,7 @@ select:focus {
 /* ========================
    BADGES - dual tone
    ======================== */
-:where(.record-badge, .client-session-badge, .segment-count) {
+:where(.record-badge, .client-session-badge, .segment-count, .timeline-session) {
   background: linear-gradient(135deg, rgba(13, 148, 136, 0.1), rgba(6, 182, 212, 0.08)) !important;
   color: var(--primary-ink) !important;
   border: 1px solid rgba(6, 182, 212, 0.18);
