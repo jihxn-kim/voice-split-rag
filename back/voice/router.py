@@ -980,18 +980,18 @@ def run_stt_processing_background_voxtral(
         mistral_headers = {
             "Authorization": f"Bearer {client_container.mistral_api_key}",
         }
-        form_data = {
-            "model": (None, "voxtral-mini-2602"),
-            "file_url": (None, presigned_url),
-            "diarize": (None, "true"),
-            "timestamp_granularities": (None, '["segment"]'),
-            "response_format": (None, "verbose_json"),
-        }
-        logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, response_format=verbose_json")
+        form_fields = [
+            ("model", (None, "voxtral-mini-2602")),
+            ("file_url", (None, presigned_url)),
+            ("diarize", (None, "true")),
+            ("timestamp_granularities", (None, "segment")),
+            ("response_format", (None, "verbose_json")),
+        ]
+        logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, timestamp_granularities=segment")
         mistral_response = requests.post(
             "https://api.mistral.ai/v1/audio/transcriptions",
             headers=mistral_headers,
-            files=form_data,
+            files=form_fields,
             timeout=600,
         )
 
