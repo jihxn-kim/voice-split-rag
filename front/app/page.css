@@ -399,15 +399,14 @@
 }
 
 .add-modal {
-  background: var(--surface-ultra, #fff);
-  border: 1px solid var(--surface-border);
+  background: #FFFFFF !important;
+  border: 1px solid var(--surface-border) !important;
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-hover);
-  backdrop-filter: blur(16px) saturate(120%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), var(--shadow-glow);
   animation: scalePop 0.25s ease-out;
 }
 
@@ -464,8 +463,8 @@
 .form-group select,
 .form-group input,
 .form-group textarea {
-  background: rgba(6, 182, 212, 0.04);
-  border: 1px solid rgba(6, 182, 212, 0.15);
+  background: #F0FDFA;
+  border: 1px solid var(--primary-border);
   border-radius: var(--radius-sm);
   padding: 0.65rem 0.85rem;
   font-size: 0.9rem;
