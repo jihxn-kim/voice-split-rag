@@ -976,22 +976,21 @@ def run_stt_processing_background_voxtral(
 
         logger.info(f"[bg] Starting transcription with Voxtral Transcribe 2 via file_url, s3_key={s3_key}")
 
-        # Mistral API 호출 — file_url로 S3 presigned URL 직접 전달
+        # Mistral API 호출 (multipart/form-data, file_url 사용)
         mistral_headers = {
             "Authorization": f"Bearer {client_container.mistral_api_key}",
-            "Content-Type": "application/json",
         }
-        mistral_body = {
-            "model": "voxtral-mini-2602",
-            "file_url": presigned_url,
-            "diarize": True,
-            "response_format": "verbose_json",
+        form_data = {
+            "model": (None, "voxtral-mini-2602"),
+            "file_url": (None, presigned_url),
+            "diarize": (None, "true"),
+            "response_format": (None, "verbose_json"),
         }
         logger.info(f"[bg] Voxtral request: model=voxtral-mini-2602, diarize=true, response_format=verbose_json")
         mistral_response = requests.post(
             "https://api.mistral.ai/v1/audio/transcriptions",
             headers=mistral_headers,
-            json=mistral_body,
+            files=form_data,
             timeout=600,
         )
 
