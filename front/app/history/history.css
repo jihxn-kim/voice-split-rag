@@ -13,6 +13,7 @@
 .history-container {
   max-width: 1200px;
   margin: 0 auto;
+  animation: fadeInUp 0.4s ease-out;
 }
 
 .history-header {
@@ -20,6 +21,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  animation: fadeInUp 0.4s ease-out;
 }
 
 .history-title {
@@ -42,7 +44,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -55,7 +57,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s;
 }
 
 .loading {
@@ -73,6 +75,7 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  animation: fadeInUp 0.4s ease-out;
 }
 
 .empty-state p {
@@ -88,6 +91,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  animation: scalePop 0.3s ease-out;
 }
 
 .records-grid {
@@ -96,12 +100,24 @@
   gap: 1rem;
 }
 
+/* Staggered card entrance */
 .record-card {
   border-radius: var(--radius-md);
   padding: 1.25rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.4s ease-out both;
 }
+
+.record-card:nth-child(1) { animation-delay: 0.03s; }
+.record-card:nth-child(2) { animation-delay: 0.06s; }
+.record-card:nth-child(3) { animation-delay: 0.09s; }
+.record-card:nth-child(4) { animation-delay: 0.12s; }
+.record-card:nth-child(5) { animation-delay: 0.15s; }
+.record-card:nth-child(6) { animation-delay: 0.18s; }
+.record-card:nth-child(7) { animation-delay: 0.21s; }
+.record-card:nth-child(8) { animation-delay: 0.24s; }
+.record-card:nth-child(9) { animation-delay: 0.27s; }
 
 .record-title {
   font-size: 1.1rem;
@@ -123,7 +139,7 @@
 .info-item {
   font-size: 0.85rem;
   color: var(--primary-muted);
-  background: rgba(13, 148, 136, 0.06);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.06), rgba(6, 182, 212, 0.04));
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
   font-weight: 500;

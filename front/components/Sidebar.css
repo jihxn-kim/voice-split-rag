@@ -8,9 +8,10 @@
   position: fixed;
   left: 0;
   top: 0;
-  box-shadow: 4px 0 20px rgba(13, 148, 136, 0.04);
+  box-shadow: 4px 0 20px rgba(6, 182, 212, 0.04);
   backdrop-filter: blur(20px);
   z-index: 50;
+  animation: slideInLeft 0.4s ease-out;
 }
 
 .sidebar-header {
@@ -27,6 +28,11 @@
   max-width: 100%;
   display: block;
   object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-logo:hover {
+  transform: scale(1.05);
 }
 
 .sidebar-nav {
@@ -46,28 +52,53 @@
   background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   font-size: 0.95rem;
   color: var(--primary-muted);
   text-align: left;
   width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  background: var(--primary-gradient);
+  border-radius: 0 4px 4px 0;
+  transition: transform 0.25s ease;
 }
 
 .nav-item:hover {
-  background: var(--primary-soft);
+  background: linear-gradient(135deg, var(--primary-soft), var(--cyan-soft));
   color: var(--primary-dark);
+  transform: translateX(4px);
 }
 
 .nav-item.active {
-  background: rgba(13, 148, 136, 0.1);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1), rgba(6, 182, 212, 0.08));
   color: var(--primary-dark);
   font-weight: 600;
-  border-color: rgba(13, 148, 136, 0.15);
+  border-color: rgba(6, 182, 212, 0.15);
+}
+
+.nav-item.active::before {
+  transform: translateY(-50%) scaleY(1);
 }
 
 .nav-icon {
   flex-shrink: 0;
   color: inherit;
+  transition: transform 0.25s ease;
+}
+
+.nav-item:hover .nav-icon {
+  transform: scale(1.15);
 }
 
 .nav-label {
@@ -89,7 +120,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -98,6 +129,7 @@
 
 .logout-button:hover {
   background: var(--danger-hover-bg);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {
@@ -107,6 +139,7 @@
     position: relative;
     border-right: none;
     border-bottom: 1px solid var(--surface-border);
+    animation: fadeInUp 0.3s ease-out;
   }
 
   .sidebar-header {
@@ -131,6 +164,14 @@
     min-width: 72px;
     justify-content: center;
     align-items: center;
+  }
+
+  .nav-item::before {
+    display: none;
+  }
+
+  .nav-item:hover {
+    transform: translateY(-2px) translateX(0);
   }
 
   .nav-label {
