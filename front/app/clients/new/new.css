@@ -13,12 +13,11 @@
 .new-client-container {
   max-width: 860px;
   margin: 0 auto;
-  animation: fadeInUp 0.4s ease-out;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .page-header {
   margin-bottom: 2rem;
-  animation: slideInLeft 0.4s ease-out;
 }
 
 .back-btn {
@@ -27,7 +26,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.2s ease-out;
   margin-bottom: 1rem;
   display: inline-flex;
   align-items: center;
@@ -51,7 +50,7 @@
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  animation: scalePop 0.3s ease-out;
+  animation: scalePop 0.25s ease-out;
 }
 
 .error-icon {
@@ -62,7 +61,6 @@
 .client-form {
   border-radius: var(--radius-lg);
   padding: 2.5rem;
-  animation: fadeInUp 0.5s ease-out 0.1s both;
 }
 
 .form-section {
@@ -114,7 +112,7 @@
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   color: var(--app-foreground);
-  transition: all 0.3s;
+  transition: all 0.2s ease-out;
   font-family: inherit;
   background: rgba(255, 255, 255, 0.6);
 }
@@ -168,7 +166,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.2s ease-out;
 }
 
 .cancel-btn:disabled,

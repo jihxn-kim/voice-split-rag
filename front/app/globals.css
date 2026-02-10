@@ -14,14 +14,19 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Primary palette - teal + cyan dual-tone */
-  --primary: #0D9488;
-  --primary-dark: #0F766E;
-  --primary-light: #14B8A6;
-  --primary-ink: #134E4A;
-  --primary-muted: #5F7D7A;
-  --primary-soft: rgba(13, 148, 136, 0.08);
-  --primary-border: rgba(13, 148, 136, 0.22);
+  /* Primary palette - cyan (ui-ux-pro-max recommended) */
+  --primary: #0891B2;
+  --primary-dark: #0E7490;
+  --primary-light: #22D3EE;
+  --primary-ink: #164E63;
+  --primary-muted: #5B7A8A;
+  --primary-soft: rgba(8, 145, 178, 0.08);
+  --primary-border: rgba(8, 145, 178, 0.22);
+
+  /* Teal accent - for dual-tone */
+  --teal: #0D9488;
+  --teal-dark: #0F766E;
+  --teal-soft: rgba(13, 148, 136, 0.08);
 
   /* Cyan accent */
   --cyan: #06B6D4;
@@ -29,20 +34,22 @@
   --cyan-dark: #0891B2;
   --cyan-soft: rgba(6, 182, 212, 0.08);
 
-  /* Dual-tone gradients */
+  /* CTA green (ui-ux-pro-max recommended) */
+  --cta: #059669;
+
+  /* Dual-tone gradients - teal to cyan */
   --primary-gradient: linear-gradient(135deg, #0D9488 0%, #06B6D4 100%);
   --primary-gradient-hover: linear-gradient(135deg, #0F766E 0%, #0891B2 100%);
-  --hero-gradient: linear-gradient(135deg, #134E4A 0%, #164E63 50%, #1E3A5F 100%);
+  --hero-gradient: linear-gradient(135deg, #164E63 0%, #0E7490 50%, #155E75 100%);
   --card-gradient: linear-gradient(135deg, rgba(13, 148, 136, 0.04) 0%, rgba(6, 182, 212, 0.04) 100%);
   --glow-gradient: linear-gradient(135deg, rgba(13, 148, 136, 0.15), rgba(6, 182, 212, 0.15));
-  --shimmer-gradient: linear-gradient(90deg, transparent 0%, rgba(6, 182, 212, 0.08) 50%, transparent 100%);
   --border-gradient: linear-gradient(135deg, rgba(13, 148, 136, 0.3), rgba(6, 182, 212, 0.3));
 
   /* Accent */
   --accent: #F59E0B;
   --accent-soft: rgba(245, 158, 11, 0.12);
 
-  /* App background */
+  /* App background (ui-ux-pro-max: #ECFEFF base) */
   --app-bg: linear-gradient(160deg, #F0FDFA 0%, #ECFEFF 40%, #F8FAFC 70%, #ECFDF5 100%);
   --app-foreground: #1E293B;
 
@@ -50,12 +57,12 @@
   --surface: rgba(255, 255, 255, 0.82);
   --surface-strong: rgba(255, 255, 255, 0.92);
   --surface-ultra: rgba(255, 255, 255, 0.97);
-  --surface-border: rgba(13, 148, 136, 0.12);
+  --surface-border: rgba(8, 145, 178, 0.12);
 
   /* Shadows - dual color glow */
-  --shadow-soft: 0 4px 24px rgba(13, 148, 136, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-lift: 0 8px 24px rgba(6, 182, 212, 0.1), 0 4px 12px rgba(13, 148, 136, 0.06);
-  --shadow-hover: 0 12px 32px rgba(6, 182, 212, 0.12), 0 4px 8px rgba(13, 148, 136, 0.08);
+  --shadow-soft: 0 4px 24px rgba(8, 145, 178, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lift: 0 8px 24px rgba(6, 182, 212, 0.1), 0 4px 12px rgba(8, 145, 178, 0.06);
+  --shadow-hover: 0 12px 32px rgba(6, 182, 212, 0.12), 0 4px 8px rgba(8, 145, 178, 0.08);
   --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.15), 0 0 40px rgba(13, 148, 136, 0.08);
 
   /* Borders */
@@ -134,7 +141,7 @@ select:focus {
 }
 
 /* ========================
-   BACKGROUND ORBS - animated, colorful
+   BACKGROUND ORBS - ambient (not functional UI)
    ======================== */
 .bg-orb {
   position: absolute;
@@ -210,7 +217,7 @@ select:focus {
   border: 1px solid var(--surface-border) !important;
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px) saturate(120%);
-  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  transition: box-shadow 0.2s ease-out, border-color 0.2s ease-out, transform 0.2s ease-out;
 }
 
 .ai-analysis-section {
@@ -257,11 +264,11 @@ select:focus {
   ):hover {
   box-shadow: var(--shadow-hover);
   border-color: var(--border-hover) !important;
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 /* ========================
-   PRIMARY BUTTONS - animated gradient
+   PRIMARY BUTTONS - static gradient (no continuous animation)
    ======================== */
 :where(
     .upload-btn-large,
@@ -276,56 +283,10 @@ select:focus {
     .speaker-save-btn
   ) {
   background: var(--primary-gradient) !important;
-  background-size: 200% 200% !important;
   color: #ffffff !important;
   border: none !important;
   box-shadow: var(--shadow-lift);
-  animation: gradient-shift 4s ease infinite;
-  position: relative;
-  overflow: hidden;
-}
-
-:where(
-    .upload-btn-large,
-    .upload-btn,
-    .add-client-btn,
-    .upload-voice-btn,
-    .btn-select,
-    .first-upload-btn,
-    .submit-btn,
-    .auth-submit-btn,
-    .save-btn,
-    .speaker-save-btn
-  )::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.12) 50%,
-    transparent 70%
-  );
-  transform: translateX(-100%);
-  transition: transform 0.6s ease;
-}
-
-:where(
-    .upload-btn-large,
-    .upload-btn,
-    .add-client-btn,
-    .upload-voice-btn,
-    .btn-select,
-    .first-upload-btn,
-    .submit-btn,
-    .auth-submit-btn,
-    .save-btn,
-    .speaker-save-btn
-  ):hover::after {
-  transform: translateX(100%);
+  transition: all 0.2s ease-out;
 }
 
 :where(
@@ -363,7 +324,7 @@ select:focus {
   color: var(--primary-ink) !important;
   border: 1px solid var(--primary-border) !important;
   box-shadow: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease-out;
 }
 
 :where(
@@ -422,11 +383,11 @@ select:focus {
 }
 
 /* ========================
-   SPINNERS - dual color
+   SPINNERS - dual color (continuous animation OK for loading)
    ======================== */
 :where(.spinner, .spinner-small, .spinner-large) {
   border-color: rgba(6, 182, 212, 0.12) !important;
-  border-top-color: var(--primary) !important;
+  border-top-color: var(--teal) !important;
   border-right-color: var(--cyan) !important;
 }
 
@@ -456,9 +417,11 @@ select:focus {
 
 /* ========================
    KEYFRAME ANIMATIONS
+   per ui-ux-pro-max: 200-300ms, ease-out for entering,
+   transform/opacity only, 1-2 key elements per view
    ======================== */
 
-/* Floating drift for orbs */
+/* Ambient drift for background orbs (not functional UI) */
 @keyframes drift {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
@@ -474,17 +437,17 @@ select:focus {
   }
 }
 
-/* Orb pulsing */
+/* Ambient orb pulsing (not functional UI) */
 @keyframes pulse-orb {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.65; }
 }
 
-/* Page entrance - fade in up */
+/* Page entrance - fade in up (300ms, ease-out) */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -492,96 +455,32 @@ select:focus {
   }
 }
 
-/* Slide in from left */
-@keyframes slideInLeft {
+/* Scale pop for modals/cards (250ms, ease-out) */
+@keyframes scalePop {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Scale pop */
-@keyframes scalePop {
-  0% {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  60% {
-    transform: scale(1.02);
-  }
-  100% {
-    opacity: 1;
     transform: scale(1);
   }
 }
 
-/* Gradient shift for buttons */
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* Fade in for overlays */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Shimmer sweep */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-/* Soft glow pulse */
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.08), 0 0 40px rgba(13, 148, 136, 0.04);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(6, 182, 212, 0.15), 0 0 60px rgba(13, 148, 136, 0.08);
-  }
-}
-
-/* Bounce in */
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Float animation */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-/* Spin */
+/* Spin for loading spinners only (continuous OK per guidelines) */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-/* Stagger support utility */
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.1s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.2s; }
-.stagger-5 { animation-delay: 0.25s; }
-.stagger-6 { animation-delay: 0.3s; }
-
 /* ========================
-   REDUCED MOTION
+   REDUCED MOTION (CRITICAL per ui-ux-pro-max)
    ======================== */
 @media (prefers-reduced-motion: reduce) {
   .bg-orb {

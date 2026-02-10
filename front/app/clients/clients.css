@@ -13,7 +13,7 @@
 .clients-container {
   max-width: 1200px;
   margin: 0 auto;
-  animation: fadeInUp 0.4s ease-out;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .clients-header {
@@ -21,7 +21,6 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  animation: fadeInUp 0.4s ease-out;
 }
 
 .clients-title {
@@ -44,7 +43,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease-out;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -64,7 +63,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  animation: scalePop 0.3s ease-out;
+  animation: scalePop 0.25s ease-out;
 }
 
 .retry-btn {
@@ -74,14 +73,13 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.2s ease-out;
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem;
   border-radius: var(--radius-lg);
-  animation: fadeInUp 0.4s ease-out;
 }
 
 .empty-state p {
@@ -96,21 +94,12 @@
   gap: 1rem;
 }
 
-/* Staggered card entrance */
 .client-card {
   border-radius: var(--radius-md);
   padding: 1.25rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  animation: fadeInUp 0.4s ease-out both;
+  transition: all 0.2s ease-out;
 }
-
-.client-card:nth-child(1) { animation-delay: 0.03s; }
-.client-card:nth-child(2) { animation-delay: 0.06s; }
-.client-card:nth-child(3) { animation-delay: 0.09s; }
-.client-card:nth-child(4) { animation-delay: 0.12s; }
-.client-card:nth-child(5) { animation-delay: 0.15s; }
-.client-card:nth-child(6) { animation-delay: 0.18s; }
 
 .client-card-header {
   display: flex;

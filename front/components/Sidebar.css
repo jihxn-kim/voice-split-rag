@@ -11,7 +11,6 @@
   box-shadow: 4px 0 20px rgba(6, 182, 212, 0.04);
   backdrop-filter: blur(20px);
   z-index: 50;
-  animation: slideInLeft 0.4s ease-out;
 }
 
 .sidebar-header {
@@ -28,11 +27,11 @@
   max-width: 100%;
   display: block;
   object-fit: contain;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease-out;
 }
 
 .sidebar-logo:hover {
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 .sidebar-nav {
@@ -52,7 +51,7 @@
   background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease-out;
   font-size: 0.95rem;
   color: var(--primary-muted);
   text-align: left;
@@ -71,17 +70,16 @@
   height: 60%;
   background: var(--primary-gradient);
   border-radius: 0 4px 4px 0;
-  transition: transform 0.25s ease;
+  transition: transform 0.2s ease-out;
 }
 
 .nav-item:hover {
   background: linear-gradient(135deg, var(--primary-soft), var(--cyan-soft));
   color: var(--primary-dark);
-  transform: translateX(4px);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1), rgba(6, 182, 212, 0.08));
+  background: linear-gradient(135deg, rgba(8, 145, 178, 0.1), rgba(6, 182, 212, 0.08));
   color: var(--primary-dark);
   font-weight: 600;
   border-color: rgba(6, 182, 212, 0.15);
@@ -94,11 +92,7 @@
 .nav-icon {
   flex-shrink: 0;
   color: inherit;
-  transition: transform 0.25s ease;
-}
-
-.nav-item:hover .nav-icon {
-  transform: scale(1.15);
+  transition: color 0.2s ease-out;
 }
 
 .nav-label {
@@ -120,7 +114,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.2s ease-out;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,7 +133,6 @@
     position: relative;
     border-right: none;
     border-bottom: 1px solid var(--surface-border);
-    animation: fadeInUp 0.3s ease-out;
   }
 
   .sidebar-header {
@@ -168,10 +161,6 @@
 
   .nav-item::before {
     display: none;
-  }
-
-  .nav-item:hover {
-    transform: translateY(-2px) translateX(0);
   }
 
   .nav-label {
