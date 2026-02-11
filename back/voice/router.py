@@ -988,25 +988,9 @@ def run_stt_processing_background_voxtral(
         file_size = os.path.getsize(temp_file_path)
         logger.info(f"[bg] Downloaded from S3: {file_size} bytes ({file_size / 1024 / 1024:.1f} MB), ext={orig_ext}")
 
-        # m4a/aac 등 비표준 포맷이면 ffmpeg로 wav 변환
+        # Voxtral은 m4a, mp3, wav, flac, ogg 네이티브 지원 — 변환 없이 원본 전송
         send_file_path = temp_file_path
-        wav_path = None
-        if orig_ext.lower() in (".m4a", ".aac", ".ogg", ".wma", ".webm", ".flac"):
-            wav_path = temp_file_path + ".wav"
-            logger.info(f"[bg] Converting {orig_ext} -> wav via ffmpeg")
-            ffmpeg_result = subprocess.run(
-                ["ffmpeg", "-y", "-i", temp_file_path, "-ar", "16000", "-ac", "1", wav_path],
-                capture_output=True, text=True, timeout=300,
-            )
-            if ffmpeg_result.returncode != 0:
-                logger.error(f"[bg] ffmpeg failed: {ffmpeg_result.stderr[:1000]}")
-                raise RuntimeError(f"ffmpeg conversion failed: {ffmpeg_result.stderr[:500]}")
-            wav_size = os.path.getsize(wav_path)
-            logger.info(f"[bg] Converted to wav: {wav_size} bytes ({wav_size / 1024 / 1024:.1f} MB)")
-            send_file_path = wav_path
-            send_file_name = os.path.splitext(os.path.basename(s3_key))[0] + ".wav"
-        else:
-            send_file_name = os.path.basename(s3_key)
+        send_file_name = os.path.basename(s3_key)
 
         # Mistral Python SDK로 호출
         from mistralai import Mistral as MistralClient
