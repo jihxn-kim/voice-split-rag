@@ -1161,6 +1161,7 @@ def run_stt_processing_background_voxtral(
                     asyncio.run(analyze_first_session(db, client, voice_record.id, dialogue))
                 except Exception as e:
                     logger.warning(f"[bg] AI analysis failed: {str(e)}")
+                    db.rollback()
         elif session_number and session_number > 1 and client_container.openai_client:
             try:
                 logger.info(
@@ -1171,6 +1172,7 @@ def run_stt_processing_background_voxtral(
                 )
             except Exception as e:
                 logger.warning(f"[bg] Next session goal analysis failed: {str(e)}")
+                db.rollback()
 
         upload.status = "completed"
         upload.voice_record_id = voice_record.id
@@ -1179,6 +1181,10 @@ def run_stt_processing_background_voxtral(
     except Exception as e:
         logger.exception(f"[bg] process-s3-file-voxtral failed: {str(e)}")
         if upload:
+            try:
+                db.rollback()
+            except Exception:
+                pass
             upload.status = "failed"
             upload.error_message = str(e)
             db.commit()
