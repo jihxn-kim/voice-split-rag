@@ -995,7 +995,7 @@ def run_stt_processing_background_voxtral(
             wav_path = temp_file_path + ".wav"
             logger.info(f"[bg] Converting {orig_ext} -> wav via ffmpeg")
             ffmpeg_result = subprocess.run(
-                ["ffmpeg", "-y", "-i", temp_file_path, "-vn", "-acodec", "pcm_s16le", wav_path],
+                ["ffmpeg", "-y", "-i", temp_file_path, "-ar", "16000", "-ac", "1", wav_path],
                 capture_output=True, text=True, timeout=300,
             )
             if ffmpeg_result.returncode != 0:
