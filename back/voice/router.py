@@ -1017,7 +1017,7 @@ def run_stt_processing_background_voxtral(
             result_payload = json.loads(transcription.json()) if hasattr(transcription, "json") else {"text": str(transcription)}
 
         # temp 파일 정리
-        for p in [temp_file_path, wav_path]:
+        for p in [temp_file_path]:
             if p and os.path.exists(p):
                 try:
                     os.unlink(p)
