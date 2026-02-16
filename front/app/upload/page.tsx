@@ -143,7 +143,7 @@ export default function Upload() {
       }
 
       // 3단계: 백엔드에 처리 요청
-      const processRes = await fetch("/api/process-audio-voxtral", {
+      const processRes = await fetch("/api/process-audio-speechmatics", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
