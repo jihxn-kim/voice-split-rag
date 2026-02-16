@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await fetch(`${backendUrl}/voice/process-s3-file-speechmatics`, {
+    const response = await fetch(`${backendUrl}/voice/process-s3-file-vito`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
