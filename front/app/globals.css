@@ -23,6 +23,18 @@
   --primary-soft: rgba(13, 148, 136, 0.06);
   --primary-border: rgba(13, 148, 136, 0.2);
 
+  /* Aliases for backward compatibility */
+  --teal: #0D9488;
+  --teal-dark: #0F766E;
+  --teal-soft: rgba(13, 148, 136, 0.06);
+  --cyan: #14B8A6;
+  --cyan-light: #5EEAD4;
+  --cyan-dark: #0F766E;
+  --cyan-soft: rgba(13, 148, 136, 0.06);
+  --primary-gradient: #0D9488;
+  --primary-gradient-hover: #0F766E;
+  --hero-gradient: #0F766E;
+
   /* CTA */
   --cta: #0D9488;
 
