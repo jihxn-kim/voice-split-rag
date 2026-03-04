@@ -4,8 +4,8 @@
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from database import Base
-from datetime import datetime
 
 
 class VoiceRecord(Base):
@@ -36,8 +36,8 @@ class VoiceRecord(Base):
     duration = Column(Integer, nullable=True)  # 총 길이 (초)
     
     # 타임스탬프
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
     # 관계
     user = relationship("User", back_populates="voice_records")

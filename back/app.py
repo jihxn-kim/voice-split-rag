@@ -37,6 +37,24 @@ async def lifespan(app: FastAPI):
                     "ADD COLUMN IF NOT EXISTS segments_merged_data JSON"
                 )
             )
+            # 기존 timestamp 컬럼 → timestamptz 변환 (UTC 데이터를 KST로 올바르게 해석)
+            migrate_tables = [
+                ("voice_records", ["created_at", "updated_at"]),
+                ("voice_uploads", ["created_at", "updated_at"]),
+                ("voice_record_goals", ["created_at", "updated_at"]),
+                ("voice_record_audio_events", ["created_at"]),
+            ]
+            for table, columns in migrate_tables:
+                for col in columns:
+                    try:
+                        conn.execute(text(
+                            f"ALTER TABLE {table} "
+                            f"ALTER COLUMN {col} TYPE timestamptz "
+                            f"USING {col} AT TIME ZONE 'UTC'"
+                        ))
+                    except Exception:
+                        pass  # 이미 timestamptz이면 무시
+            logger.info("Timezone migration completed")
         logger.info("Database columns ensured successfully")
     except Exception as e:
         logger.warning(f"Failed to ensure database columns: {str(e)}")

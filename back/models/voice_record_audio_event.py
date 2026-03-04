@@ -3,8 +3,8 @@ Speechmatics 비언어 이벤트 저장 모델
 """
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.sql import func
 from database import Base
-from datetime import datetime
 
 
 class VoiceRecordAudioEvent(Base):
@@ -22,7 +22,7 @@ class VoiceRecordAudioEvent(Base):
     end_time = Column(Float, nullable=False)
     confidence = Column(Float, nullable=True)
     channel = Column(String(20), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self):
         return (

@@ -87,7 +87,7 @@
 .title-input {
   flex: 1;
   padding: 0.75rem;
-  border: 2px solid var(--cyan);
+  border: 2px solid var(--primary-s50);
   border-radius: var(--radius-sm);
   font-size: 1.15rem;
   outline: none;
@@ -95,7 +95,7 @@
 }
 
 .title-input:focus {
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
 .metadata {
@@ -109,7 +109,7 @@
   padding: 1rem;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
-  color: #475569;
+  color: var(--gray-s70);
 }
 
 .meta-item strong {
@@ -166,7 +166,7 @@
   padding: 0.3rem 0.8rem 0.3rem 0.55rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--gray-s70);
   cursor: pointer;
   transition: all 0.2s ease-out;
 }
@@ -174,7 +174,7 @@
 .speaker-icon {
   display: flex;
   align-items: center;
-  color: var(--primary-muted);
+  color: var(--gray-s60);
 }
 
 .speaker-name {
@@ -288,7 +288,7 @@
 
 .segment-time {
   font-size: 0.8rem;
-  color: #94A3B8;
+  color: var(--gray-s50);
   font-family: 'IBM Plex Mono', monospace;
 }
 
@@ -302,7 +302,7 @@
 .loading {
   text-align: center;
   padding: 4rem;
-  color: var(--primary-muted);
+  color: var(--gray-s60);
   font-size: 1rem;
 }
 
@@ -310,7 +310,7 @@
   text-align: center;
   padding: 3rem;
   border-radius: var(--radius-lg);
-  color: var(--primary-muted);
+  color: var(--gray-s60);
   font-size: 1rem;
   display: flex;
   flex-direction: column;

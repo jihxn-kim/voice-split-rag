@@ -14,7 +14,10 @@ from schemas.voice_record import VoiceRecordResponse, VoiceRecordListResponse, V
 from database import get_db
 from logs.logging_util import LoggerSingleton
 from config.exception import BadRequest, InternalError, AppException
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from sqlalchemy.sql import func
+
+KST = timezone(timedelta(hours=9))
 import logging
 
 # 로거 설정
@@ -199,7 +202,7 @@ async def update_voice_record(
                     ]
                 )
 
-        record.updated_at = datetime.utcnow()
+        record.updated_at = func.now()
         
         db.commit()
         db.refresh(record)

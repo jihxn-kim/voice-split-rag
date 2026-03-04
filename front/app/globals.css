@@ -14,55 +14,97 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Primary - clean teal */
-  --primary: #0D9488;
-  --primary-dark: #0F766E;
-  --primary-light: #14B8A6;
-  --primary-ink: #134E4A;
-  --primary-muted: #64748B;
-  --primary-soft: rgba(13, 148, 136, 0.06);
-  --primary-border: rgba(13, 148, 136, 0.2);
+  /* ========================
+     PRIMARY — Indigo scale
+     ======================== */
+  --primary-s10: #EEF2FF;
+  --primary-s20: #E0E7FF;
+  --primary-s30: #C7D2FE;
+  --primary-s40: #A5B4FC;
+  --primary-s50: #4F46E5;
+  --primary-s60: #4338CA;
+  --primary-s70: #3730A3;
+  --primary-s80: #312E81;
+  --primary-s90: #2E1065;
+  --primary-s100: #1E1B4B;
 
-  /* Aliases for backward compatibility */
-  --teal: #0D9488;
-  --teal-dark: #0F766E;
-  --teal-soft: rgba(13, 148, 136, 0.06);
-  --cyan: #14B8A6;
-  --cyan-light: #5EEAD4;
-  --cyan-dark: #0F766E;
-  --cyan-soft: rgba(13, 148, 136, 0.06);
-  --primary-gradient: #0D9488;
-  --primary-gradient-hover: #0F766E;
-  --hero-gradient: #0F766E;
+  /* ========================
+     GRAY — Slate scale
+     ======================== */
+  --gray-s10: #F8FAFC;
+  --gray-s20: #F1F5F9;
+  --gray-s30: #E2E8F0;
+  --gray-s40: #CBD5E1;
+  --gray-s50: #94A3B8;
+  --gray-s60: #64748B;
+  --gray-s70: #475569;
+  --gray-s80: #334155;
+  --gray-s90: #1E293B;
+  --gray-s100: #0F172A;
+
+  /* ========================
+     SUB COLORS
+     ======================== */
+  --red-s10: #FEF2F2;
+  --red-s50: #EF4444;
+  --orange-s10: #FFF7ED;
+  --orange-s50: #F97316;
+  --green-s10: #F0FDF4;
+  --green-s50: #22C55E;
+  --purple-s10: #FAF5FF;
+  --purple-s50: #A855F7;
+
+  /* ========================
+     SEMANTIC ALIASES (backward compat)
+     ======================== */
+  --primary: var(--primary-s50);
+  --primary-dark: var(--primary-s60);
+  --primary-light: var(--primary-s40);
+  --primary-ink: var(--primary-s80);
+  --primary-muted: var(--gray-s60);
+  --primary-soft: var(--primary-s10);
+  --primary-border: rgba(79, 70, 229, 0.2);
+
+  /* Legacy aliases → new tokens */
+  --teal: var(--primary-s50);
+  --teal-dark: var(--primary-s60);
+  --teal-soft: var(--primary-s10);
+  --cyan: var(--primary-s50);
+  --cyan-light: var(--primary-s40);
+  --cyan-dark: var(--primary-s60);
+  --cyan-soft: var(--primary-s10);
+  --primary-gradient: var(--primary-s50);
+  --primary-gradient-hover: var(--primary-s60);
+  --hero-gradient: var(--primary-s80);
 
   /* CTA */
-  --cta: #0D9488;
+  --cta: var(--primary-s50);
 
   /* Accent */
   --accent: #F59E0B;
   --accent-soft: rgba(245, 158, 11, 0.1);
 
-  /* App background - clean flat */
-  --app-bg: #F8FAFC;
-  --app-foreground: #1E293B;
+  /* App background */
+  --app-bg: var(--gray-s10);
+  --app-foreground: var(--gray-s90);
 
-  /* Surfaces - solid, no transparency */
+  /* Surfaces */
   --surface: #FFFFFF;
   --surface-strong: #FFFFFF;
   --surface-ultra: #FFFFFF;
-  --surface-border: #E2E8F0;
+  --surface-border: var(--gray-s30);
 
-  /* Shadows - neutral gray only */
+  /* Shadows */
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-lift: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 4px 16px rgba(79, 70, 229, 0.15);
 
   /* Borders */
-  --border-hover: #CBD5E1;
+  --border-hover: var(--gray-s40);
 
   /* Danger */
-  --danger-bg: rgba(239, 68, 68, 0.06);
+  --danger-bg: var(--red-s10);
   --danger-border: rgba(239, 68, 68, 0.2);
   --danger-text: #DC2626;
   --danger-hover-bg: rgba(239, 68, 68, 0.12);
@@ -72,6 +114,14 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
 }
 
 html {
@@ -81,11 +131,11 @@ html {
 
 a {
   font-weight: 500;
-  color: var(--primary);
+  color: var(--primary-s50);
   text-decoration: inherit;
 }
 a:hover {
-  color: var(--primary-dark);
+  color: var(--primary-s60);
 }
 
 body {
@@ -110,15 +160,15 @@ button {
 
 input[type='checkbox'],
 input[type='radio'] {
-  accent-color: var(--primary);
+  accent-color: var(--primary-s50);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1) !important;
+  border-color: var(--primary-s50) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
 }
 
 .app-shell {
@@ -141,7 +191,7 @@ select:focus {
 }
 
 /* ========================
-   CARD / PANEL SYSTEM - solid, clean
+   CARD / PANEL SYSTEM
    ======================== */
 .glass-panel,
 .recent-section,
@@ -176,19 +226,19 @@ select:focus {
 }
 
 .ai-analysis-section {
-  background: #F0FDF4 !important;
+  background: var(--green-s10) !important;
   border-color: #D1FAE5 !important;
 }
 
 .info-section,
 .ai-info-section,
 .segment-item {
-  border-left: 3px solid var(--primary) !important;
+  border-left: 3px solid var(--primary-s50) !important;
 }
 
 .segment-item.right {
   border-left: none !important;
-  border-right: 3px solid var(--primary-light) !important;
+  border-right: 3px solid var(--primary-s40) !important;
 }
 
 .segments-list .segment-item {
@@ -212,7 +262,7 @@ select:focus {
 }
 
 /* ========================
-   PRIMARY BUTTONS - solid color, no gradient
+   PRIMARY BUTTONS
    ======================== */
 :where(
     .upload-btn-large,
@@ -228,7 +278,7 @@ select:focus {
     .add-schedule-btn,
     .modal-submit
   ) {
-  background: var(--primary) !important;
+  background: var(--primary-s50) !important;
   color: #ffffff !important;
   border: none !important;
   box-shadow: var(--shadow-soft);
@@ -249,12 +299,12 @@ select:focus {
     .add-schedule-btn,
     .modal-submit
   ):hover:not(:disabled) {
-  background: var(--primary-dark) !important;
+  background: var(--primary-s60) !important;
   box-shadow: var(--shadow-lift);
 }
 
 /* ========================
-   SECONDARY BUTTONS - clean outline
+   SECONDARY BUTTONS
    ======================== */
 :where(
     .view-all-btn,
@@ -291,7 +341,7 @@ select:focus {
     .add-day-btn,
     .modal-cancel
   ):hover:not(:disabled) {
-  background: #F8FAFC !important;
+  background: var(--gray-s10) !important;
   border-color: var(--border-hover) !important;
 }
 
@@ -317,12 +367,12 @@ select:focus {
 }
 
 /* ========================
-   BADGES - subtle, flat
+   BADGES
    ======================== */
 :where(.record-badge, .client-session-badge, .segment-count, .timeline-session) {
-  background: var(--primary-soft) !important;
-  color: var(--primary-ink) !important;
-  border: 1px solid rgba(13, 148, 136, 0.15);
+  background: var(--primary-s10) !important;
+  color: var(--primary-s80) !important;
+  border: 1px solid rgba(79, 70, 229, 0.15);
 }
 
 .client-session-badge.complete {
@@ -335,40 +385,39 @@ select:focus {
    SPINNERS
    ======================== */
 :where(.spinner, .spinner-small, .spinner-large) {
-  border-color: #E2E8F0 !important;
-  border-top-color: var(--primary) !important;
-  border-right-color: var(--primary-light) !important;
+  border-color: var(--gray-s30) !important;
+  border-top-color: var(--primary-s50) !important;
+  border-right-color: var(--primary-s40) !important;
 }
 
 /* ========================
    SECTION TITLES
    ======================== */
 :where(.info-title, .ai-section-title, .ai-info-title, .meta-item strong) {
-  color: var(--primary-dark) !important;
+  color: var(--primary-s60) !important;
 }
 
 /* Speaker labels */
 .segment-speaker {
-  color: var(--primary-dark) !important;
-  background: var(--primary-soft) !important;
-  border: 1px solid rgba(13, 148, 136, 0.12) !important;
+  color: var(--primary-s60) !important;
+  background: var(--primary-s10) !important;
+  border: 1px solid rgba(79, 70, 229, 0.12) !important;
 }
 
 .segment-item.right .segment-speaker {
-  background: rgba(13, 148, 136, 0.04) !important;
+  background: rgba(79, 70, 229, 0.04) !important;
 }
 
 .speaker-chip:hover {
-  border-color: var(--primary) !important;
-  color: var(--primary-dark) !important;
-  background: var(--primary-soft) !important;
+  border-color: var(--primary-s50) !important;
+  color: var(--primary-s60) !important;
+  background: var(--primary-s10) !important;
 }
 
 /* ========================
-   KEYFRAME ANIMATIONS - minimal
+   KEYFRAME ANIMATIONS
    ======================== */
 
-/* Page entrance */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -380,7 +429,6 @@ select:focus {
   }
 }
 
-/* Scale pop for modals */
 @keyframes scalePop {
   from {
     opacity: 0;
@@ -392,13 +440,11 @@ select:focus {
   }
 }
 
-/* Fade in for overlays */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* Spin for loading spinners only */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

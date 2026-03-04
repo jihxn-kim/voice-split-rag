@@ -38,7 +38,9 @@ import uuid
 import json
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 import re
 import requests
 
@@ -1102,7 +1104,7 @@ def run_stt_processing_background_voxtral(
         if session_number:
             auto_title = f"{client.name} - {session_number}회기 상담 (Voxtral)"
         else:
-            auto_title = f"{client.name} - 상담 기록 (Voxtral) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            auto_title = f"{client.name} - 상담 기록 (Voxtral) {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}"
 
         voice_record = VoiceRecord(
             title=auto_title,
@@ -1374,7 +1376,7 @@ def run_stt_processing_background(
         if session_number:
             auto_title = f"{client.name} - {session_number}회기 상담"
         else:
-            auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            auto_title = f"{client.name} - 상담 기록 {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}"
 
         voice_record = VoiceRecord(
             title=auto_title,
@@ -1689,7 +1691,7 @@ def run_stt_processing_background_speechmatics(
         if session_number:
             auto_title = f"{client.name} - {session_number}회기 상담"
         else:
-            auto_title = f"{client.name} - 상담 기록 {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            auto_title = f"{client.name} - 상담 기록 {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}"
 
         voice_record = VoiceRecord(
             title=auto_title,
@@ -1928,7 +1930,7 @@ def run_stt_processing_background_deepgram_nova2(
         if session_number:
             auto_title = f"{client.name} - {session_number}회기 상담 (Deepgram)"
         else:
-            auto_title = f"{client.name} - 상담 기록 (Deepgram) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            auto_title = f"{client.name} - 상담 기록 (Deepgram) {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}"
 
         voice_record = VoiceRecord(
             title=auto_title,
@@ -2235,7 +2237,7 @@ def run_stt_processing_background_vito(
         if session_number:
             auto_title = f"{client.name} - {session_number}회기 상담 (VITO)"
         else:
-            auto_title = f"{client.name} - 상담 기록 (VITO) {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            auto_title = f"{client.name} - 상담 기록 (VITO) {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}"
 
         voice_record = VoiceRecord(
             title=auto_title,
@@ -2382,7 +2384,7 @@ async def generate_upload_url(
         
         # 고유한 S3 키 생성 (날짜 + UUID + 원본 파일명)
         file_extension = os.path.splitext(request.filename)[1] or ".mp3"
-        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(KST).strftime("%Y%m%d-%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
         s3_key = f"uploads/{timestamp}-{unique_id}{file_extension}"
         

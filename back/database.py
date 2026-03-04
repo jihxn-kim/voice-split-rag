@@ -26,12 +26,13 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# SQLAlchemy 엔진 생성
+# SQLAlchemy 엔진 생성 (한국 시간대 설정)
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # 연결 체크
     pool_size=10,
     max_overflow=20,
+    connect_args={"options": "-c timezone=Asia/Seoul"},
 )
 
 # 세션 로컬

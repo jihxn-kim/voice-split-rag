@@ -91,3 +91,4 @@ MANIFEST
 
 # ---- 비밀 키 / 인증서 ----
 back/key/
+.vercel
