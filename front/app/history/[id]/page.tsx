@@ -134,7 +134,7 @@ export default function RecordDetailPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString("ko-KR");
+    return date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
   };
 
   const formatTime = (seconds: number) => {
