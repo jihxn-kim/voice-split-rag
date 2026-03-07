@@ -6,6 +6,15 @@ import { ArrowLeft, Pencil, Trash2, Save, X, Copy, Check, Target, FileText as Fi
 import Sidebar from "../../../components/Sidebar";
 import "./detail.css";
 
+interface AudioEvent {
+  id: number;
+  event_type: string;
+  start_time: number;
+  end_time: number;
+  confidence: number | null;
+  channel: string | null;
+}
+
 interface VoiceRecordDetail {
   id: number;
   title: string;
@@ -40,9 +49,24 @@ interface VoiceRecordDetail {
   language_code: string;
   duration: number | null;
   next_session_goal?: string | null;
+  audio_events?: AudioEvent[];
   created_at: string;
   updated_at: string;
 }
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  laughter: "웃음",
+  laugh: "웃음",
+  cough: "기침",
+  silence: "침묵",
+  sigh: "한숨",
+  applause: "박수",
+  music: "음악",
+  noise: "소음",
+};
+
+const getEventLabel = (eventType: string) =>
+  EVENT_TYPE_LABELS[eventType.toLowerCase()] || eventType;
 
 export default function RecordDetailPage() {
   const router = useRouter();
@@ -503,14 +527,44 @@ export default function RecordDetailPage() {
                   const displaySegments = record.segments_merged_data?.length
                     ? record.segments_merged_data
                     : record.segments_data;
-                  return displaySegments.map((segment, index) => {
+                  const audioEvents = (record.audio_events || []).slice().sort(
+                    (a, b) => a.start_time - b.start_time
+                  );
+
+                  const getEventsBetween = (prevEnd: number, curStart: number) =>
+                    audioEvents.filter(
+                      (e) => e.start_time >= prevEnd && e.start_time < curStart
+                    );
+
+                  const elements: React.ReactNode[] = [];
+                  let prevEndTime = 0;
+
+                  displaySegments.forEach((segment, index) => {
+                    // 이전 세그먼트와 현재 세그먼트 사이의 이벤트 뱃지
+                    const events = getEventsBetween(prevEndTime, segment.start_time);
+                    if (events.length > 0) {
+                      elements.push(
+                        <div key={`events-${index}`} className="audio-events-row">
+                          {events.map((evt) => (
+                            <span key={evt.id} className="audio-event-badge">
+                              {getEventLabel(evt.event_type)}
+                              <span className="audio-event-time">
+                                {formatTime(evt.start_time)}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    }
+                    prevEndTime = segment.end_time;
+
                     const role = getSpeakerRole(segment.speaker_id);
                     const alignClass = role === "client" ? "right" : "left";
                     const speakerKey = (segment.speaker_id || "").toString();
                     const nextCount = (speakerCounts.get(speakerKey) || 0) + 1;
                     speakerCounts.set(speakerKey, nextCount);
 
-                    return (
+                    elements.push(
                       <div key={index} className={`segment-row ${alignClass}`}>
                         <div className={`segment-item ${alignClass}`}>
                           <div className="segment-header">
@@ -529,6 +583,27 @@ export default function RecordDetailPage() {
                       </div>
                     );
                   });
+
+                  // 마지막 세그먼트 이후의 이벤트
+                  const trailingEvents = audioEvents.filter(
+                    (e) => e.start_time >= prevEndTime
+                  );
+                  if (trailingEvents.length > 0) {
+                    elements.push(
+                      <div key="events-trailing" className="audio-events-row">
+                        {trailingEvents.map((evt) => (
+                          <span key={evt.id} className="audio-event-badge">
+                            {getEventLabel(evt.event_type)}
+                            <span className="audio-event-time">
+                              {formatTime(evt.start_time)}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return elements;
                 })()}
               </div>
             </div>

@@ -22,6 +22,7 @@ from config.dependencies import (
 from auth.dependencies import get_current_active_user
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.voice_record_audio_event import VoiceRecordAudioEvent
 from models.voice_record_goal import VoiceRecordGoal
 from models.voice_upload import VoiceUpload
 from models.client import Client
@@ -1653,6 +1654,54 @@ def run_stt_processing_background_speechmatics(
         if not segments:
             raise RuntimeError("Speechmatics transcript produced no segments")
 
+        # pyannote 화자 분리 (옵션)
+        if client_container.enable_pyannote and client_container.hf_token:
+            try:
+                from voice.diarization import run_pyannote_diarization, align_speakers as pyannote_align
+                from pydub import AudioSegment
+                # Speechmatics는 presigned URL로 처리하므로 파일을 다운로드
+                sm_temp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(s3_key)[1])
+                sm_temp_path = sm_temp.name
+                with requests.get(presigned_url, stream=True, timeout=60) as dl_resp:
+                    dl_resp.raise_for_status()
+                    for chunk in dl_resp.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            sm_temp.write(chunk)
+                sm_temp.close()
+
+                wav_path = sm_temp_path + ".wav"
+                audio = AudioSegment.from_file(sm_temp_path)
+                audio.export(wav_path, format="wav")
+
+                pya_segments = run_pyannote_diarization(wav_path, client_container.hf_token)
+                segments = pyannote_align(segments, pya_segments)
+
+                # speakers dict 재구축
+                speakers = {}
+                for seg in segments:
+                    spk_id = str(seg.get("speaker_id"))
+                    if spk_id not in speakers:
+                        speakers[spk_id] = {
+                            "speaker_id": spk_id,
+                            "text": seg.get("text", ""),
+                            "start_time": seg.get("start_time", 0),
+                            "end_time": seg.get("end_time", 0),
+                        }
+                    else:
+                        speakers[spk_id]["text"] += " " + seg.get("text", "")
+                        speakers[spk_id]["end_time"] = max(
+                            speakers[spk_id]["end_time"], seg.get("end_time", 0)
+                        )
+
+                logger.info(f"[bg] pyannote speaker alignment applied (Speechmatics): {len(speakers)} speakers")
+
+                # 임시파일 정리
+                for p in [sm_temp_path, wav_path]:
+                    if os.path.exists(p):
+                        os.unlink(p)
+            except Exception as e:
+                logger.warning(f"[bg] pyannote diarization failed, using original speakers: {e}")
+
         speaker_ids: list[str] = []
         for seg in segments:
             seg_speaker_id = str(seg.get("speaker_id"))
@@ -1712,6 +1761,21 @@ def run_stt_processing_background_speechmatics(
         db.add(voice_record)
         db.commit()
         db.refresh(voice_record)
+
+        # audio_events DB 저장
+        if audio_events:
+            for evt in audio_events:
+                db.add(VoiceRecordAudioEvent(
+                    voice_record_id=voice_record.id,
+                    client_id=client_id,
+                    event_type=evt.get("type", "unknown"),
+                    start_time=evt.get("start_time", 0.0),
+                    end_time=evt.get("end_time", 0.0),
+                    confidence=evt.get("confidence"),
+                    channel=evt.get("channel"),
+                ))
+            db.commit()
+            logger.info(f"[bg] Saved {len(audio_events)} audio events for voice_record_id={voice_record.id}")
 
         logger.info(
             f"[bg] Voice record saved (Speechmatics): id={voice_record.id}, user_id={user_id}, client_id={client_id}"
@@ -2190,6 +2254,45 @@ def run_stt_processing_background_vito(
         segments, speakers, full_transcript = parse_vito_results(status_payload)
         if not segments:
             raise RuntimeError("VITO transcript produced no segments")
+
+        # pyannote 화자 분리 (옵션)
+        if client_container.enable_pyannote and client_container.hf_token:
+            try:
+                from voice.diarization import run_pyannote_diarization, align_speakers as pyannote_align
+                # WAV 변환 (pyannote는 WAV 필요)
+                wav_path = temp_file_path + ".wav"
+                from pydub import AudioSegment
+                audio = AudioSegment.from_file(temp_file_path)
+                audio.export(wav_path, format="wav")
+                logger.info(f"[bg] Converted to WAV for pyannote: {wav_path}")
+
+                pya_segments = run_pyannote_diarization(wav_path, client_container.hf_token)
+                segments = pyannote_align(segments, pya_segments)
+
+                # speakers dict 재구축
+                speakers = {}
+                for seg in segments:
+                    spk_id = str(seg.get("speaker_id"))
+                    if spk_id not in speakers:
+                        speakers[spk_id] = {
+                            "speaker_id": spk_id,
+                            "text": seg.get("text", ""),
+                            "start_time": seg.get("start_time", 0),
+                            "end_time": seg.get("end_time", 0),
+                        }
+                    else:
+                        speakers[spk_id]["text"] += " " + seg.get("text", "")
+                        speakers[spk_id]["end_time"] = max(
+                            speakers[spk_id]["end_time"], seg.get("end_time", 0)
+                        )
+
+                logger.info(f"[bg] pyannote speaker alignment applied: {len(speakers)} speakers")
+
+                # WAV 임시파일 정리
+                if os.path.exists(wav_path):
+                    os.unlink(wav_path)
+            except Exception as e:
+                logger.warning(f"[bg] pyannote diarization failed, using original speakers: {e}")
 
         speaker_ids: list[str] = []
         for seg in segments:

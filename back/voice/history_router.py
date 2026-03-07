@@ -8,6 +8,7 @@ from auth.dependencies import get_current_active_user
 from config.dependencies import get_s3_client, get_s3_bucket_name
 from models.user import User
 from models.voice_record import VoiceRecord
+from models.voice_record_audio_event import VoiceRecordAudioEvent  # noqa: F401 — ensure model is loaded
 from models.voice_record_goal import VoiceRecordGoal
 from models.voice_upload import VoiceUpload
 from schemas.voice_record import VoiceRecordResponse, VoiceRecordListResponse, VoiceRecordUpdate

@@ -4,7 +4,7 @@
 }
 
 .main-content {
-  margin-left: 260px;
+  margin-left: 240px;
   flex: 1;
   padding: 0;
   overflow-y: auto;
@@ -69,12 +69,12 @@
 .form-group textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1.5px solid rgba(79, 70, 229, 0.15);
+  border: 1px solid var(--gray-s30);
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   font-family: inherit;
-  transition: all 0.2s ease-out;
-  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.12s ease;
+  background: #FFFFFF;
 }
 
 .form-group input:focus,
@@ -82,7 +82,7 @@
 .form-group textarea:focus {
   outline: none;
   border-color: var(--primary-s50);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
   background: white;
 }
 
@@ -125,13 +125,13 @@
 
 .btn-show-ai {
   background: var(--primary-s10);
-  border: 1px solid rgba(79, 70, 229, 0.15);
+  border: 1px solid var(--gray-s30);
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
   color: var(--primary-s60);
   cursor: pointer;
-  transition: all 0.2s ease-out;
+  transition: all 0.12s ease;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -169,7 +169,7 @@
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.2s ease-out;
+  transition: all 0.12s ease;
   font-weight: 600;
   min-width: 80px;
   display: inline-flex;
@@ -217,12 +217,12 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease-out;
+  transition: all 0.12s ease;
 }
 
 .btn-cancel {
   background: white;
-  border: 1px solid rgba(79, 70, 229, 0.15);
+  border: 1px solid var(--gray-s30);
   color: var(--gray-s60);
 }
 
@@ -240,8 +240,7 @@
 
 .btn-submit:hover:not(:disabled) {
   background: var(--primary-s60);
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 .btn-cancel:disabled,
@@ -260,7 +259,7 @@
 }
 
 .spinner {
-  border: 3px solid rgba(79, 70, 229, 0.12);
+  border: 2.5px solid var(--gray-s30);
   border-top: 3px solid var(--primary-s50);
   border-right: 3px solid var(--primary-s40);
   border-radius: 50%;

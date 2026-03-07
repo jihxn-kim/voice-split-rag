@@ -25,6 +25,8 @@ class ClientContainer:
         self.vito_client_id = None
         self.vito_client_secret = None
         self.mistral_api_key = None
+        self.hf_token = None
+        self.enable_pyannote = False
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -70,6 +72,12 @@ def initialize_clients() -> ClientContainer:
     mistral_key = os.getenv("MISTRAL_API_KEY")
     if mistral_key:
         container.mistral_api_key = mistral_key
+
+    # HuggingFace token for pyannote
+    hf_token = os.getenv("HF_TOKEN")
+    if hf_token:
+        container.hf_token = hf_token
+    container.enable_pyannote = os.getenv("ENABLE_PYANNOTE", "false").lower() in ("true", "1", "yes")
 
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")

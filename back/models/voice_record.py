@@ -42,6 +42,7 @@ class VoiceRecord(Base):
     # 관계
     user = relationship("User", back_populates="voice_records")
     client = relationship("Client", back_populates="voice_records")
+    audio_events = relationship("VoiceRecordAudioEvent", backref="voice_record", cascade="all, delete-orphan", lazy="selectin")
     
     def __repr__(self):
         return f"<VoiceRecord(id={self.id}, title='{self.title}', user_id={self.user_id})>"

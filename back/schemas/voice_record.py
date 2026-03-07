@@ -32,6 +32,19 @@ class VoiceRecordUpdate(BaseModel):
     speaker_renames: Optional[Dict[str, str]] = None
 
 
+class AudioEventResponse(BaseModel):
+    """비언어 이벤트 응답"""
+    id: int
+    event_type: str
+    start_time: float
+    end_time: float
+    confidence: Optional[float] = None
+    channel: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class VoiceRecordResponse(BaseModel):
     """음성 기록 응답 (전체)"""
     id: int
@@ -50,9 +63,10 @@ class VoiceRecordResponse(BaseModel):
     language_code: str
     duration: Optional[int]
     next_session_goal: Optional[str] = None
+    audio_events: List[AudioEventResponse] = []
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
