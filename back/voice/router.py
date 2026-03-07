@@ -705,9 +705,17 @@ def parse_deepgram_results(payload: dict) -> tuple[list[dict], dict[str, dict], 
         return segments, speakers, full_transcript
 
 
-def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]:
+def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str, list[dict]]:
+    """
+    VITO 결과를 파싱하여 세그먼트, 화자, 전체 텍스트, 단어 리스트를 반환한다.
+
+    Returns:
+        (segments, speakers, full_transcript, words)
+        words: [{speaker_id, text, start_time, end_time}, ...] — use_word_timestamp 사용 시
+    """
     segments: list[dict] = []
     speakers: dict[str, dict] = {}
+    words: list[dict] = []
     results = payload.get("results") or {}
     utterances = results.get("utterances") or []
     full_transcript = (results.get("text") or "").strip()
@@ -744,6 +752,32 @@ def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]
                 "duration": end_time - start_time,
             }
         )
+
+        # 단어 타임스탬프 파싱
+        utt_words = utt.get("words") or []
+        for w in utt_words:
+            if not isinstance(w, dict):
+                continue
+            w_text = (w.get("text") or "").strip()
+            if not w_text:
+                continue
+            w_start_ms = w.get("start_at") or 0
+            w_duration_ms = w.get("duration") or 0
+            try:
+                w_start_ms = float(w_start_ms)
+            except Exception:
+                w_start_ms = 0.0
+            try:
+                w_duration_ms = float(w_duration_ms)
+            except Exception:
+                w_duration_ms = 0.0
+            words.append({
+                "speaker_id": speaker_id,
+                "text": w_text,
+                "start_time": w_start_ms / 1000.0,
+                "end_time": (w_start_ms + w_duration_ms) / 1000.0,
+            })
+
         if speaker_id not in speakers:
             speakers[speaker_id] = {
                 "speaker_id": speaker_id,
@@ -767,7 +801,7 @@ def parse_vito_results(payload: dict) -> tuple[list[dict], dict[str, dict], str]
     if not full_transcript and segments:
         full_transcript = " ".join([seg["text"] for seg in segments]).strip()
 
-    return segments, speakers, full_transcript
+    return segments, speakers, full_transcript, words
 
     # Fallback: build segments from word-level if available
     channels = results.get("channels") or []
@@ -2193,6 +2227,7 @@ def run_stt_processing_background_vito(
             "use_disfluency_filter": False,
             "use_profanity_filter": False,
             "use_paragraph_splitter": False,
+            "use_word_timestamp": True,
         }
 
         logger.info("[bg] Starting transcription with VITO...")
@@ -2251,48 +2286,61 @@ def run_stt_processing_background_vito(
 
             time.sleep(poll_interval)
 
-        segments, speakers, full_transcript = parse_vito_results(status_payload)
+        segments, speakers, full_transcript, vito_words = parse_vito_results(status_payload)
         if not segments:
             raise RuntimeError("VITO transcript produced no segments")
 
-        # pyannote 화자 분리 (옵션)
+        # pyannote 겹침 감지 + 단어 재배정 (옵션)
         if client_container.enable_pyannote and client_container.hf_token:
             try:
-                from voice.diarization import run_pyannote_diarization, align_speakers as pyannote_align
+                from voice.diarization import detect_overlaps, run_diarization_on_overlaps, reassign_words_in_overlaps
                 # WAV 변환 (pyannote는 WAV 필요)
                 wav_path = temp_file_path + ".wav"
-                from pydub import AudioSegment
-                audio = AudioSegment.from_file(temp_file_path)
-                audio.export(wav_path, format="wav")
-                logger.info(f"[bg] Converted to WAV for pyannote: {wav_path}")
+                from pydub import AudioSegment as PydubAudioSegment
+                audio_seg = PydubAudioSegment.from_file(temp_file_path)
+                audio_seg.export(wav_path, format="wav")
+                logger.info(f"[bg] Converted to WAV for pyannote OSD: {wav_path}")
 
-                pya_segments = run_pyannote_diarization(wav_path, client_container.hf_token)
-                segments = pyannote_align(segments, pya_segments)
+                # 1. 겹침 구간 감지 (OSD — 가벼움)
+                overlap_regions = detect_overlaps(wav_path, client_container.hf_token)
 
-                # speakers dict 재구축
-                speakers = {}
-                for seg in segments:
-                    spk_id = str(seg.get("speaker_id"))
-                    if spk_id not in speakers:
-                        speakers[spk_id] = {
-                            "speaker_id": spk_id,
-                            "text": seg.get("text", ""),
-                            "start_time": seg.get("start_time", 0),
-                            "end_time": seg.get("end_time", 0),
-                        }
-                    else:
-                        speakers[spk_id]["text"] += " " + seg.get("text", "")
-                        speakers[spk_id]["end_time"] = max(
-                            speakers[spk_id]["end_time"], seg.get("end_time", 0)
-                        )
+                if overlap_regions and vito_words:
+                    # 2. 겹침 구간에 대해서만 화자 분리
+                    overlap_speakers = run_diarization_on_overlaps(
+                        wav_path, client_container.hf_token, overlap_regions
+                    )
 
-                logger.info(f"[bg] pyannote speaker alignment applied: {len(speakers)} speakers")
+                    # 3. 겹침 구간 단어들을 pyannote 화자로 재배정
+                    segments = reassign_words_in_overlaps(
+                        segments, vito_words, overlap_regions, overlap_speakers
+                    )
+
+                    # speakers dict 재구축
+                    speakers = {}
+                    for seg in segments:
+                        spk_id = str(seg.get("speaker_id"))
+                        if spk_id not in speakers:
+                            speakers[spk_id] = {
+                                "speaker_id": spk_id,
+                                "text": seg.get("text", ""),
+                                "start_time": seg.get("start_time", 0),
+                                "end_time": seg.get("end_time", 0),
+                            }
+                        else:
+                            speakers[spk_id]["text"] += " " + seg.get("text", "")
+                            speakers[spk_id]["end_time"] = max(
+                                speakers[spk_id]["end_time"], seg.get("end_time", 0)
+                            )
+
+                    logger.info(f"[bg] pyannote overlap reassignment applied: {len(overlap_regions)} overlaps, {len(speakers)} speakers")
+                else:
+                    logger.info(f"[bg] No overlaps detected or no word timestamps — skipping reassignment")
 
                 # WAV 임시파일 정리
                 if os.path.exists(wav_path):
                     os.unlink(wav_path)
             except Exception as e:
-                logger.warning(f"[bg] pyannote diarization failed, using original speakers: {e}")
+                logger.warning(f"[bg] pyannote overlap detection failed, using original VITO speakers: {e}")
 
         speaker_ids: list[str] = []
         for seg in segments:
