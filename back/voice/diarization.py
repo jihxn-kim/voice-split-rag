@@ -21,23 +21,24 @@ _diarization_pipeline = None
 
 
 def _get_osd_pipeline(hf_token: str):
-    """pyannote OSD 파이프라인을 lazy-load (최초 1회만)"""
+    """segmentation-3.0 모델로 겹침 감지 파이프라인을 lazy-load"""
     global _osd_pipeline
     if _osd_pipeline is not None:
         return _osd_pipeline
 
     try:
-        from pyannote.audio import Pipeline
+        from pyannote.audio import Model, Inference
 
-        logger.info("Loading pyannote/overlapped-speech-detection pipeline...")
-        _osd_pipeline = Pipeline.from_pretrained(
-            "pyannote/overlapped-speech-detection",
+        logger.info("Loading pyannote/segmentation-3.0 for overlap detection...")
+        model = Model.from_pretrained(
+            "pyannote/segmentation-3.0",
             token=hf_token,
         )
-        logger.info("pyannote OSD pipeline loaded successfully")
+        _osd_pipeline = Inference(model, step=2.5)
+        logger.info("pyannote segmentation model loaded for OSD")
         return _osd_pipeline
     except Exception as e:
-        logger.error(f"Failed to load pyannote OSD pipeline: {e}")
+        logger.error(f"Failed to load pyannote segmentation model: {e}")
         raise
 
 
@@ -68,30 +69,64 @@ def detect_overlaps(
     audio_path: str,
     hf_token: str,
     min_duration: float = 0.3,
+    overlap_threshold: float = 0.5,
 ) -> list[dict]:
     """
-    겹침 구간만 감지 (OSD)
+    segmentation-3.0 모델로 겹침 구간 감지
+
+    segmentation 모델은 각 프레임에서 최대 3명의 화자 활성 확률을 출력한다.
+    2명 이상의 화자가 동시에 threshold를 넘으면 겹침으로 판단.
 
     Args:
         audio_path: WAV 오디오 파일 경로
         hf_token: HuggingFace 인증 토큰
-        min_duration: 최소 겹침 길이 (초). 이보다 짧은 겹침은 무시
+        min_duration: 최소 겹침 길이 (초)
+        overlap_threshold: 화자 활성 판단 임계값 (0~1)
 
     Returns:
         [{"start": 3.5, "end": 4.2}, ...]
     """
-    pipeline = _get_osd_pipeline(hf_token)
+    import numpy as np
 
-    logger.info(f"Running pyannote OSD on {audio_path}")
-    output = pipeline(audio_path)
+    inference = _get_osd_pipeline(hf_token)
 
+    logger.info(f"Running pyannote segmentation for OSD on {audio_path}")
+    output = inference(audio_path)
+
+    # output.data: (frames, 3) — 각 프레임에서 최대 3명 화자의 활성 확률
+    # 2명 이상 threshold 초과 → 겹침
+    data = output.data
+    num_active = np.sum(data > overlap_threshold, axis=1)
+    is_overlap = num_active >= 2
+
+    # 프레임 → 시간 변환
+    frames = output.sliding_window
     overlaps = []
-    for segment in output.get_timeline().support():
-        duration = segment.end - segment.start
+    in_overlap = False
+    start = 0.0
+
+    for i, overlap in enumerate(is_overlap):
+        t = frames[i].middle
+        if overlap and not in_overlap:
+            start = t
+            in_overlap = True
+        elif not overlap and in_overlap:
+            duration = t - start
+            if duration >= min_duration:
+                overlaps.append({
+                    "start": round(start, 3),
+                    "end": round(t, 3),
+                })
+            in_overlap = False
+
+    # 마지막 구간 처리
+    if in_overlap:
+        t = frames[len(is_overlap) - 1].middle
+        duration = t - start
         if duration >= min_duration:
             overlaps.append({
-                "start": round(segment.start, 3),
-                "end": round(segment.end, 3),
+                "start": round(start, 3),
+                "end": round(t, 3),
             })
 
     logger.info(f"pyannote OSD complete: {len(overlaps)} overlap regions detected")
