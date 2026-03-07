@@ -32,7 +32,7 @@ def _get_osd_pipeline(hf_token: str):
         logger.info("Loading pyannote/overlapped-speech-detection pipeline...")
         _osd_pipeline = Pipeline.from_pretrained(
             "pyannote/overlapped-speech-detection",
-            use_auth_token=hf_token,
+            token=hf_token,
         )
         logger.info("pyannote OSD pipeline loaded successfully")
         return _osd_pipeline
@@ -54,7 +54,7 @@ def _get_diarization_pipeline(hf_token: str):
         logger.info("Loading pyannote/speaker-diarization-3.1 pipeline...")
         _diarization_pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token,
+            token=hf_token,
         )
         _diarization_pipeline.to(torch.device("cpu"))
         logger.info("pyannote diarization pipeline loaded successfully (CPU)")
