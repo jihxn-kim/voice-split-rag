@@ -2290,17 +2290,20 @@ def run_stt_processing_background_vito(
         if not segments:
             raise RuntimeError("VITO transcript produced no segments")
 
-        # pyannote ONNX 겹침 감지 + 단어 마킹 (옵션)
+        # pyannote ONNX 겹침 감지 + 화자 재배정 (옵션)
         if client_container.enable_osd:
             try:
-                from voice.diarization import detect_overlaps, reassign_overlap_words
+                from voice.diarization import run_segmentation, reassign_overlap_words
 
-                logger.info("[bg] Running pyannote ONNX overlap detection...")
-                overlap_regions = detect_overlaps(temp_file_path, min_duration=0.3)
+                logger.info("[bg] Running pyannote ONNX segmentation...")
+                seg_result = run_segmentation(temp_file_path)
+                overlap_regions = seg_result["overlap_regions"]
 
                 if overlap_regions and vito_words:
                     segments = reassign_overlap_words(
-                        segments, vito_words, overlap_regions
+                        segments, vito_words,
+                        seg_result["speaker_probs"],
+                        overlap_regions,
                     )
 
                     # speakers dict 재구축
@@ -2320,7 +2323,7 @@ def run_stt_processing_background_vito(
                                 speakers[spk_id]["end_time"], seg.get("end_time", 0)
                             )
 
-                    logger.info(f"[bg] OSD overlap marking applied: {len(speakers)} speakers, {len(overlap_regions)} overlaps")
+                    logger.info(f"[bg] OSD reassignment applied: {len(speakers)} speakers, {len(overlap_regions)} overlaps")
                 else:
                     logger.info("[bg] No overlaps detected or no word timestamps — skipping")
             except Exception as e:
