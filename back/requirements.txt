@@ -20,9 +20,7 @@ bcrypt==3.2.2
 alembic==1.14.0
 email-validator==2.1.0
 
-# Pyannote speaker diarization (CPU only)
-torch --index-url https://download.pytorch.org/whl/cpu
-torchaudio --index-url https://download.pytorch.org/whl/cpu
-pyannote.audio
+# Picovoice Falcon speaker diarization (CPU, lightweight)
+pvfalcon
 
 # ffmpeg는 Railway가 자동으로 설치합니다 (nixpacks.toml 참조)

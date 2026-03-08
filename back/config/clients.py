@@ -27,6 +27,8 @@ class ClientContainer:
         self.mistral_api_key = None
         self.hf_token = None
         self.enable_pyannote = False
+        self.picovoice_access_key = None
+        self.enable_falcon = False
         self.s3_client = None
 
 # 클라이언트들을 초기화하는 함수
@@ -78,6 +80,12 @@ def initialize_clients() -> ClientContainer:
     if hf_token:
         container.hf_token = hf_token
     container.enable_pyannote = os.getenv("ENABLE_PYANNOTE", "false").lower() in ("true", "1", "yes")
+
+    # Picovoice Falcon
+    picovoice_key = os.getenv("PICOVOICE_ACCESS_KEY")
+    if picovoice_key:
+        container.picovoice_access_key = picovoice_key
+    container.enable_falcon = os.getenv("ENABLE_FALCON", "false").lower() in ("true", "1", "yes")
 
     # AWS S3 클라이언트
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")

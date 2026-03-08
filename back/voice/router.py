@@ -2290,29 +2290,24 @@ def run_stt_processing_background_vito(
         if not segments:
             raise RuntimeError("VITO transcript produced no segments")
 
-        # pyannote 겹침 감지 + 단어 재배정 (옵션)
-        if client_container.enable_pyannote and client_container.hf_token:
+        # Falcon 화자 분리 + 겹침 구간 단어 재배정 (옵션)
+        if client_container.enable_falcon and client_container.picovoice_access_key:
             try:
-                from voice.diarization import detect_overlaps, run_diarization_on_overlaps, reassign_words_in_overlaps
-                # WAV 변환 (pyannote는 WAV 필요)
+                from voice.diarization import run_falcon_diarization, reassign_words_with_falcon
+                # WAV 변환 (Falcon은 WAV 필요)
                 wav_path = temp_file_path + ".wav"
                 from pydub import AudioSegment as PydubAudioSegment
                 audio_seg = PydubAudioSegment.from_file(temp_file_path)
                 audio_seg.export(wav_path, format="wav")
-                logger.info(f"[bg] Converted to WAV for pyannote OSD: {wav_path}")
+                logger.info(f"[bg] Converted to WAV for Falcon: {wav_path}")
 
-                # 1. 겹침 구간 감지 (OSD — 가벼움)
-                overlap_regions = detect_overlaps(wav_path, client_container.hf_token)
+                # 1. Falcon 화자 분리 (CPU, 매우 빠름)
+                falcon_segments = run_falcon_diarization(wav_path, client_container.picovoice_access_key)
 
-                if overlap_regions and vito_words:
-                    # 2. 겹침 구간에 대해서만 화자 분리
-                    overlap_speakers = run_diarization_on_overlaps(
-                        wav_path, client_container.hf_token, overlap_regions
-                    )
-
-                    # 3. 겹침 구간 단어들을 pyannote 화자로 재배정
-                    segments = reassign_words_in_overlaps(
-                        segments, vito_words, overlap_regions, overlap_speakers
+                if falcon_segments and vito_words:
+                    # 2. 겹침 구간 감지 + 단어 재배정
+                    segments = reassign_words_with_falcon(
+                        segments, vito_words, falcon_segments
                     )
 
                     # speakers dict 재구축
@@ -2332,15 +2327,15 @@ def run_stt_processing_background_vito(
                                 speakers[spk_id]["end_time"], seg.get("end_time", 0)
                             )
 
-                    logger.info(f"[bg] pyannote overlap reassignment applied: {len(overlap_regions)} overlaps, {len(speakers)} speakers")
+                    logger.info(f"[bg] Falcon overlap reassignment applied: {len(speakers)} speakers")
                 else:
-                    logger.info(f"[bg] No overlaps detected or no word timestamps — skipping reassignment")
+                    logger.info(f"[bg] No Falcon segments or no word timestamps — skipping reassignment")
 
                 # WAV 임시파일 정리
                 if os.path.exists(wav_path):
                     os.unlink(wav_path)
             except Exception as e:
-                logger.warning(f"[bg] pyannote overlap detection failed, using original VITO speakers: {e}")
+                logger.warning(f"[bg] Falcon diarization failed, using original VITO speakers: {e}")
 
         speaker_ids: list[str] = []
         for seg in segments:
