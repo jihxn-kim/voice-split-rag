@@ -112,6 +112,47 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
     return exp / np.sum(exp, axis=-1, keepdims=True)
 
 
+def _find_best_permutation(
+    prev_overlap: np.ndarray,
+    curr_overlap: np.ndarray,
+) -> list:
+    """
+    이전 윈도우와 현재 윈도우의 겹치는 구간에서
+    화자 ID 순열을 최적화한다 (Hungarian-like).
+
+    두 윈도우에서 같은 시간대의 화자 확률 패턴이 가장 비슷해지는
+    순열을 찾는다.
+
+    Args:
+        prev_overlap: 이전 윈도우 겹침 구간 (frames, NUM_SPEAKERS)
+        curr_overlap: 현재 윈도우 겹침 구간 (frames, NUM_SPEAKERS)
+
+    Returns:
+        최적 순열 (예: [1, 0, 2] → 현재 윈도우의 spk0과 spk1을 교환)
+    """
+    from itertools import permutations
+
+    min_frames = min(len(prev_overlap), len(curr_overlap))
+    if min_frames == 0:
+        return list(range(NUM_SPEAKERS))
+
+    prev = prev_overlap[:min_frames]
+    curr = curr_overlap[:min_frames]
+
+    best_perm = list(range(NUM_SPEAKERS))
+    best_cost = float("inf")
+
+    for perm in permutations(range(NUM_SPEAKERS)):
+        # 순열 적용 후 MSE 계산
+        permuted = curr[:, list(perm)]
+        cost = np.mean((prev - permuted) ** 2)
+        if cost < best_cost:
+            best_cost = cost
+            best_perm = list(perm)
+
+    return best_perm
+
+
 def run_segmentation(audio_path: str) -> dict:
     """
     전체 오디오에 대해 pyannote segmentation 실행.
@@ -131,17 +172,17 @@ def run_segmentation(audio_path: str) -> dict:
     total_duration = len(waveform) / SAMPLE_RATE
     logger.info(f"OSD: audio loaded, duration={total_duration:.1f}s, samples={len(waveform)}")
 
-    # 슬라이딩 윈도우 — 화자 확률 수집
-    all_speaker_probs = []
-    overlap_frame_count = 0
-
     # 전체 프레임 수 계산
     total_samples = len(waveform)
     total_frames = max(0, (total_samples - SINCNET_OFFSET) // SINCNET_STEP)
 
-    # 프레임별 화자 확률 누적 (슬라이딩 윈도우 평균용)
-    prob_sum = np.zeros((total_frames, NUM_SPEAKERS), dtype=np.float64)
-    prob_count = np.zeros(total_frames, dtype=np.int32)
+    # 프레임별 화자 확률 (최종 결과)
+    speaker_probs = np.zeros((total_frames, NUM_SPEAKERS), dtype=np.float64)
+
+    # 슬라이딩 윈도우 — 화자 정렬(permutation alignment) 후 누적
+    prev_chunk_probs = None  # 이전 윈도우의 화자 확률
+    prev_chunk_frames = 0
+    overlap_frames_count = 0  # 윈도우 간 겹치는 프레임 수
 
     start = 0
     chunk_count = 0
@@ -163,21 +204,42 @@ def run_segmentation(audio_path: str) -> dict:
         chunk_speaker_probs[:, 1] = probs[:, 2] + probs[:, 4] + probs[:, 6]  # spk2
         chunk_speaker_probs[:, 2] = probs[:, 3] + probs[:, 5] + probs[:, 6]  # spk3
 
+        # 화자 순서 정렬 (두 번째 윈도우부터)
+        if prev_chunk_probs is not None and overlap_frames_count > 0:
+            # 이전 윈도우 끝부분과 현재 윈도우 앞부분의 겹치는 구간 비교
+            prev_overlap = prev_chunk_probs[-overlap_frames_count:]  # 이전 윈도우 끝
+            curr_overlap = chunk_speaker_probs[:overlap_frames_count]  # 현재 윈도우 앞
+
+            # 최적 화자 순열 찾기 (코스트 매트릭스 기반)
+            best_perm = _find_best_permutation(prev_overlap, curr_overlap)
+
+            if best_perm != list(range(NUM_SPEAKERS)):
+                # 화자 순서 재배치
+                chunk_speaker_probs = chunk_speaker_probs[:, best_perm]
+
         # 전체 타임라인에 매핑
         chunk_start_frame = max(0, (start - SINCNET_OFFSET) // SINCNET_STEP) if start > 0 else 0
-        for i in range(probs.shape[0]):
+        num_chunk_frames = probs.shape[0]
+
+        for i in range(num_chunk_frames):
             global_frame = chunk_start_frame + i
             if global_frame < total_frames:
-                prob_sum[global_frame] += chunk_speaker_probs[i]
-                prob_count[global_frame] += 1
+                if speaker_probs[global_frame].sum() == 0:
+                    # 아직 값이 없으면 그대로 할당
+                    speaker_probs[global_frame] = chunk_speaker_probs[i]
+                else:
+                    # 겹치는 구간: 평균 (이제 화자 ID가 정렬된 상태)
+                    speaker_probs[global_frame] = (
+                        speaker_probs[global_frame] + chunk_speaker_probs[i]
+                    ) / 2
+
+        # 다음 윈도우를 위해 저장
+        prev_chunk_probs = chunk_speaker_probs
+        prev_chunk_frames = num_chunk_frames
+        overlap_frames_count = max(0, (WINDOW_SAMPLES - STEP_SAMPLES - SINCNET_OFFSET) // SINCNET_STEP)
 
         start += STEP_SAMPLES
         chunk_count += 1
-
-    # 평균 화자 확률
-    valid = prob_count > 0
-    speaker_probs = np.zeros_like(prob_sum)
-    speaker_probs[valid] = prob_sum[valid] / prob_count[valid, np.newaxis]
 
     logger.info(f"OSD: processed {chunk_count} chunks, total_frames={total_frames}")
 
