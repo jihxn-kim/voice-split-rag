@@ -182,14 +182,14 @@ def run_segmentation(audio_path: str) -> dict:
     logger.info(f"OSD: processed {chunk_count} chunks, total_frames={total_frames}")
 
     # 겹침 구간 추출 (두 화자 확률이 모두 임계값 이상인 프레임)
-    ONSET = 0.5
+    ONSET = 0.7  # 0.5→0.7: false positive 줄이기 위해 임계값 상향
     min_duration = 0.3
 
     overlap_mask = np.zeros(total_frames, dtype=bool)
     for i in range(total_frames):
-        # 활성 화자 수: 확률이 ONSET 이상인 화자
-        active_count = np.sum(speaker_probs[i] >= ONSET)
-        if active_count >= 2:
+        # 상위 2개 화자의 확률이 모두 ONSET 이상이어야 겹침
+        sorted_probs = np.sort(speaker_probs[i])[::-1]
+        if sorted_probs[1] >= ONSET:  # 2번째로 높은 확률도 임계값 이상
             overlap_mask[i] = True
 
     # 연속 겹침 프레임 → 구간으로 병합
@@ -213,9 +213,18 @@ def run_segmentation(audio_path: str) -> dict:
         if ov_end - ov_start >= min_duration:
             overlap_regions.append({"start": round(ov_start, 3), "end": round(ov_end, 3)})
 
-    logger.info(f"OSD complete: {len(overlap_regions)} overlap regions")
+    logger.info(f"OSD complete: {len(overlap_regions)} overlap regions (ONSET={ONSET})")
     for i, ov in enumerate(overlap_regions):
-        logger.info(f"  overlap[{i}]: {ov['start']:.1f}s - {ov['end']:.1f}s ({ov['end']-ov['start']:.1f}s)")
+        # 겹침 구간 중앙 프레임의 화자 확률 로그
+        mid_time = (ov["start"] + ov["end"]) / 2
+        mid_frame = _time_to_frame(mid_time)
+        mid_frame = min(mid_frame, total_frames - 1)
+        probs_at_mid = speaker_probs[mid_frame]
+        logger.info(
+            f"  overlap[{i}]: {ov['start']:.1f}s - {ov['end']:.1f}s "
+            f"({ov['end']-ov['start']:.1f}s) "
+            f"probs=[{probs_at_mid[0]:.2f}, {probs_at_mid[1]:.2f}, {probs_at_mid[2]:.2f}]"
+        )
 
     return {
         "speaker_probs": speaker_probs,
