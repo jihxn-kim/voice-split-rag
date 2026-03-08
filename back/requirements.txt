@@ -20,7 +20,8 @@ bcrypt==3.2.2
 alembic==1.14.0
 email-validator==2.1.0
 
-# Picovoice Falcon speaker diarization (CPU, lightweight)
-pvfalcon
+# pyannote segmentation-3.0 ONNX (겹침 감지, CPU, 6MB)
+onnxruntime
+numpy
 
 # ffmpeg는 Railway가 자동으로 설치합니다 (nixpacks.toml 참조)
